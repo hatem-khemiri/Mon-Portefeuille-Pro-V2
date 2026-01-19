@@ -19,7 +19,7 @@ export const Header = ({ onLogout }) => {
           </div>
           <div>
             <h1 className="text-xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent leading-tight">
-              Mon Portefeuille Pro
+              Mon Portefeuille Pro V2 <span className="text-xs bg-blue-500 text-white px-2 py-1 rounded ml-2">DEV</span>
             </h1>
             <p className="text-sm text-gray-600">Bienvenue {currentUser}</p>
           </div>
