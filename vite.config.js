@@ -9,8 +9,8 @@ export default defineConfig({
       registerType: 'autoUpdate',
       includeAssets: ['favicon.ico'],
       manifest: {
-        name: 'Mon Portefeuille Pro',
-        short_name: 'Portefeuille Pro',
+        name: 'Mon Portefeuille Pro V2',
+        short_name: 'Portefeuille Pro V2',
         description: 'Application de gestion financière personnelle',
         theme_color: '#3b82f6',
         background_color: '#ffffff',
