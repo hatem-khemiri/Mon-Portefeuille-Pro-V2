@@ -1,30 +1,46 @@
 import { useState } from 'react';
-import { useFinance } from '../contexts/FinanceContext';
 
 export const useBankSync = () => {
-  const { transactions, setTransactions } = useFinance();
   const [isSyncing, setIsSyncing] = useState(false);
   const [syncError, setSyncError] = useState(null);
 
   const connectBank = async (userId) => {
     try {
+      setSyncError(null);
+      
+      console.log('🔗 Connexion à Bridge pour userId:', userId);
+      
       const response = await fetch('/api/bridge/connect', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+        },
         body: JSON.stringify({ userId })
       });
 
-      const data = await response.json();
-
       if (!response.ok) {
-        throw new Error(data.message || data.error);
+        const error = await response.json();
+        throw new Error(error.error || 'Erreur de connexion');
       }
 
-      // Ouvrir Bridge Connect dans une popup
-      window.location.href = data.connectUrl;
+      const { connectUrl } = await response.json();
+      
+      console.log('✅ URL de connexion obtenue:', connectUrl);
 
-      return data;
+      // Ouvrir Bridge Connect dans une popup
+      const width = 500;
+      const height = 700;
+      const left = (window.screen.width - width) / 2;
+      const top = (window.screen.height - height) / 2;
+
+      window.open(
+        connectUrl,
+        'Bridge Connect',
+        `width=${width},height=${height},left=${left},top=${top},resizable=yes,scrollbars=yes`
+      );
+
     } catch (error) {
+      console.error('❌ Connect error:', error);
       setSyncError(error.message);
       throw error;
     }
@@ -37,29 +53,22 @@ export const useBankSync = () => {
     try {
       const response = await fetch('/api/bridge/sync', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+        },
         body: JSON.stringify({ itemId, userId })
       });
 
-      const data = await response.json();
-
       if (!response.ok) {
-        throw new Error(data.error);
+        const error = await response.json();
+        throw new Error(error.error || 'Erreur de synchronisation');
       }
 
-      // Fusionner les transactions bancaires avec les transactions manuelles
-      const manualTransactions = transactions.filter(t => !t.isSynced);
-      const allTransactions = [...manualTransactions, ...data.transactions];
-
-      setTransactions(allTransactions);
-
-      return {
-        accounts: data.accounts,
-        transactionsCount: data.transactions.length,
-        syncDate: data.syncDate
-      };
+      const data = await response.json();
+      return data;
 
     } catch (error) {
+      console.error('❌ Sync error:', error);
       setSyncError(error.message);
       throw error;
     } finally {
@@ -69,24 +78,25 @@ export const useBankSync = () => {
 
   const disconnectBank = async (itemId) => {
     try {
+      setSyncError(null);
+
       const response = await fetch('/api/bridge/disconnect', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+        },
         body: JSON.stringify({ itemId })
       });
 
-      const data = await response.json();
-
       if (!response.ok) {
-        throw new Error(data.error);
+        const error = await response.json();
+        throw new Error(error.error || 'Erreur de déconnexion');
       }
 
-      // Supprimer les transactions synchronisées
-      const manualTransactions = transactions.filter(t => !t.isSynced);
-      setTransactions(manualTransactions);
+      return await response.json();
 
-      return data;
     } catch (error) {
+      console.error('❌ Disconnect error:', error);
       setSyncError(error.message);
       throw error;
     }
