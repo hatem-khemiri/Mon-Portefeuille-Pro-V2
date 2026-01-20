@@ -26,11 +26,7 @@ export const BankConnection = () => {
     
     if (status === 'success') {
       console.log('🎉 Retour Bridge avec succès');
-      
-      // Nettoyer l'URL
       window.history.replaceState({}, document.title, window.location.pathname);
-      
-      // Déclencher une synchronisation pour découvrir l'item_id
       handleSyncAfterConnection();
     }
   }, []);
@@ -47,7 +43,6 @@ export const BankConnection = () => {
     try {
       console.log('🔄 Synchronisation après connexion...');
       
-      // Pour l'instant, on fait une requête pour lister les items
       const response = await fetch('/api/bridge/items', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -59,9 +54,8 @@ export const BankConnection = () => {
       const { items } = await response.json();
       
       if (items && items.length > 0) {
-        const latestItem = items[0]; // Prendre le plus récent
+        const latestItem = items[0];
         
-        // Sauvegarder la connexion
         const connection = { 
           itemId: latestItem.id, 
           userId: currentUser,
@@ -72,7 +66,6 @@ export const BankConnection = () => {
         setBankConnection(connection);
         localStorage.setItem(`bank_connection_${currentUser}`, JSON.stringify(connection));
         
-        // Synchroniser les transactions
         await handleSync(latestItem.id);
       }
       
@@ -84,36 +77,48 @@ export const BankConnection = () => {
 
   const handleSync = async (itemId = bankConnection?.itemId) => {
     try {
-      console.log('🔄 Synchronisation transactions...', { itemId, userId: currentUser });
+      console.log('🔄 Lancement synchronisation...', { itemId, userId: currentUser });
       
       const result = await syncTransactions(itemId, currentUser);
       
-      console.log('✅ Résultat sync:', result);
+      console.log('📊 Résultat sync:', result);
       
       if (result.transactions && result.transactions.length > 0) {
-        // Fusionner avec les transactions existantes
-        const existingTransactions = transactions || [];
-        const bridgeIds = new Set(existingTransactions.map(t => t.bridgeId).filter(Boolean));
+        console.log(`✅ ${result.transactions.length} transactions récupérées de Bridge`);
         
-        // Ajouter uniquement les nouvelles transactions
-        const newTransactions = result.transactions.filter(t => !bridgeIds.has(t.bridgeId));
+        // IMPORTANT: Fusionner avec les transactions existantes
+        const existingTransactions = transactions || [];
+        const bridgeIds = new Set(
+          existingTransactions
+            .filter(t => t.bridgeId)
+            .map(t => t.bridgeId)
+        );
+        
+        // Filtrer uniquement les nouvelles transactions
+        const newTransactions = result.transactions.filter(
+          t => !bridgeIds.has(t.bridgeId)
+        );
+        
+        console.log(`📥 ${newTransactions.length} nouvelles transactions à ajouter`);
         
         if (newTransactions.length > 0) {
+          // Mettre à jour directement le contexte React
           const updatedTransactions = [...existingTransactions, ...newTransactions];
           setTransactions(updatedTransactions);
           
-          // Sauvegarder dans localStorage
-          localStorage.setItem(`transactions_${currentUser}`, JSON.stringify(updatedTransactions));
+          console.log('✅ Transactions ajoutées au contexte React');
+          
+          setLastSync(new Date().toISOString());
+          alert(`✅ ${newTransactions.length} nouvelles transactions ajoutées !`);
+        } else {
+          alert('ℹ️ Aucune nouvelle transaction à synchroniser');
         }
-        
-        setLastSync(new Date().toISOString());
-        alert(`✅ ${result.transactions.length} transactions synchronisées ! (${newTransactions.length} nouvelles)`);
       } else {
         alert('ℹ️ Aucune transaction trouvée');
       }
       
     } catch (error) {
-      console.error('❌ Erreur sync:', error);
+      console.error('❌ Erreur handleSync:', error);
       alert(`❌ Erreur : ${error.message}`);
     }
   };
@@ -123,6 +128,10 @@ export const BankConnection = () => {
       if (bankConnection?.itemId) {
         await disconnectBank(bankConnection.itemId);
       }
+      
+      // Supprimer les transactions synchronisées
+      const updatedTransactions = transactions.filter(t => !t.isSynced);
+      setTransactions(updatedTransactions);
       
       setBankConnection(null);
       setLastSync(null);
