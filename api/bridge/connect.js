@@ -5,11 +5,6 @@ const BRIDGE_API_URL = 'https://api.bridgeapi.io';
 
 export default async function handler(req, res) {
   console.log("📥 REQ BODY:", req.body);
-  console.log("🔧 ENV CHECK:", {
-    id: !!process.env.BRIDGE_CLIENT_ID,
-    secret: !!process.env.BRIDGE_CLIENT_SECRET,
-    version: BRIDGE_VERSION
-  });
 
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
@@ -27,17 +22,15 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: 'userId requis' });
     }
 
-    // Étape 1: Créer ou récupérer l'utilisateur Bridge
-    console.log("👤 [v3] Création/récupération utilisateur:", userId);
+    console.log("👤 [v3] Gestion utilisateur:", userId);
     
     let bridgeUserId;
     
+    // Créer ou récupérer l'utilisateur
     try {
       const createUserResponse = await axios.post(
         `${BRIDGE_API_URL}/v3/aggregation/users`,
-        {
-          external_user_id: userId
-        },
+        { external_user_id: userId },
         {
           headers: {
             'Bridge-Version': BRIDGE_VERSION,
@@ -52,11 +45,9 @@ export default async function handler(req, res) {
       console.log("✅ Utilisateur créé, UUID:", bridgeUserId);
       
     } catch (userError) {
-      // Si l'utilisateur existe déjà, récupérer son UUID
       if (userError.response?.data?.errors?.[0]?.code === 'users.creation.already_exists_with_external_user_id') {
-        console.log("ℹ️ Utilisateur existe déjà, récupération UUID...");
+        console.log("ℹ️ Utilisateur existe, récupération...");
         
-        // Lister les utilisateurs pour trouver celui qui correspond
         const listResponse = await axios.get(
           `${BRIDGE_API_URL}/v3/aggregation/users`,
           {
@@ -83,12 +74,13 @@ export default async function handler(req, res) {
       }
     }
 
-    // Étape 2: Créer une session de connexion directement avec l'UUID
-    console.log("🔗 [v3] Création session de connexion pour UUID:", bridgeUserId);
+    // Créer une session de connexion avec user_uuid dans le body
+    console.log("🔗 [v3] Création session...");
     
     const connectResponse = await axios.post(
-      `${BRIDGE_API_URL}/v3/aggregation/users/${bridgeUserId}/connect-sessions`,
+      `${BRIDGE_API_URL}/v3/aggregation/connect-sessions`,
       {
+        user_uuid: bridgeUserId,
         redirect_url: `https://mon-portefeuille-pro-v2.vercel.app/?bridge_status=success`
       },
       {
@@ -101,7 +93,7 @@ export default async function handler(req, res) {
       }
     );
 
-    console.log("✅ Connect URL générée:", connectResponse.data.url);
+    console.log("✅ Session créée:", connectResponse.data.url);
 
     return res.status(200).json({
       connectUrl: connectResponse.data.url,
