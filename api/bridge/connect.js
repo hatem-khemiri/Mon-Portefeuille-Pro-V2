@@ -35,45 +35,55 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: 'userId requis' });
     }
 
-    let bridgeUserId;
+    // Essayer directement avec external_user_id dans le token endpoint
+    console.log("🔑 Obtention access token avec external_user_id...");
     
-    // Étape 1: Créer ou récupérer l'utilisateur
-    console.log("👤 Gestion utilisateur:", userId);
+    let accessToken;
+    
     try {
-      const createResponse = await axios.post(
-        `${BRIDGE_API_URL}/v3/aggregation/users`,
-        { external_user_id: userId },
+      const tokenResponse = await axios.post(
+        `${BRIDGE_API_URL}/v3/aggregation/authorization/token`,
+        {
+          external_user_id: userId
+        },
         { headers: getHeaders() }
       );
-      bridgeUserId = createResponse.data.uuid;
-      console.log("✅ Utilisateur créé:", bridgeUserId);
-    } catch (error) {
-      if (error.response?.data?.errors?.[0]?.code === 'users.creation.already_exists_with_external_user_id') {
-        console.log("ℹ️ Utilisateur existe déjà");
-        const listResponse = await axios.get(
+      
+      accessToken = tokenResponse.data.access_token;
+      console.log("✅ Token obtenu directement");
+      
+    } catch (tokenError) {
+      console.log("❌ Erreur token:", tokenError.response?.data);
+      
+      // Si l'utilisateur n'existe pas, le créer d'abord
+      if (tokenError.response?.status === 404) {
+        console.log("👤 Création utilisateur...");
+        
+        await axios.post(
           `${BRIDGE_API_URL}/v3/aggregation/users`,
+          { external_user_id: userId },
           { headers: getHeaders() }
         );
-        const user = listResponse.data.resources.find(u => u.external_user_id === userId);
-        bridgeUserId = user?.uuid;
-        console.log("✅ UUID récupéré:", bridgeUserId);
+        
+        console.log("✅ Utilisateur créé, nouvelle tentative token...");
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        
+        const retryTokenResponse = await axios.post(
+          `${BRIDGE_API_URL}/v3/aggregation/authorization/token`,
+          {
+            external_user_id: userId
+          },
+          { headers: getHeaders() }
+        );
+        
+        accessToken = retryTokenResponse.data.access_token;
+        console.log("✅ Token obtenu après création");
       } else {
-        throw error;
+        throw tokenError;
       }
     }
 
-    // Étape 2: Obtenir un access token pour cet utilisateur
-    console.log("🔑 Obtention access token...");
-    const tokenResponse = await axios.post(
-      `${BRIDGE_API_URL}/v3/aggregation/users/${bridgeUserId}/authorization/token`,
-      {},
-      { headers: getHeaders() }
-    );
-    
-    const accessToken = tokenResponse.data.access_token;
-    console.log("✅ Token obtenu");
-
-    // Étape 3: Créer une connect-session avec le token
+    // Créer une connect-session avec le token
     console.log("🔗 Création connect-session...");
     const connectResponse = await axios.post(
       `${BRIDGE_API_URL}/v3/aggregation/connect-sessions`,
@@ -91,7 +101,7 @@ export default async function handler(req, res) {
     });
 
   } catch (error) {
-    console.error('❌ Erreur:', error.response?.data || error.message);
+    console.error('❌ Erreur finale:', error.response?.data || error.message);
     return res.status(500).json({
       error: 'Erreur lors de la connexion bancaire',
       details: error.response?.data || error.message
