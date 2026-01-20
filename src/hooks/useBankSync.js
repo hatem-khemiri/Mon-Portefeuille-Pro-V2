@@ -8,14 +8,17 @@ export const useBankSync = () => {
     try {
       setSyncError(null);
       
-      console.log('🔗 Connexion à Bridge pour userId:', userId);
+      // Nettoyer l'userId (supprimer espaces, caractères spéciaux)
+      const cleanUserId = userId.trim().replace(/[^a-zA-Z0-9_-]/g, '_');
+      
+      console.log('🔗 Connexion à Bridge pour userId:', cleanUserId);
       
       const response = await fetch('/api/bridge/connect', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ userId })
+        body: JSON.stringify({ userId: cleanUserId })
       });
 
       if (!response.ok) {
@@ -33,11 +36,30 @@ export const useBankSync = () => {
       const left = (window.screen.width - width) / 2;
       const top = (window.screen.height - height) / 2;
 
-      window.open(
+      const bridgeWindow = window.open(
         connectUrl,
         'Bridge Connect',
         `width=${width},height=${height},left=${left},top=${top},resizable=yes,scrollbars=yes`
       );
+
+      // Écouter les événements de succès/échec
+      const handleMessage = (event) => {
+        if (event.origin !== 'https://api.bridgeapi.io') return;
+
+        console.log('📨 Message Bridge reçu:', event.data);
+
+        if (event.data.type === 'bridge:item:connected') {
+          console.log('✅ Banque connectée!', event.data);
+          bridgeWindow?.close();
+          
+          // Déclencher la synchronisation automatique
+          if (event.data.item_id) {
+            syncTransactions(event.data.item_id, cleanUserId);
+          }
+        }
+      };
+
+      window.addEventListener('message', handleMessage);
 
     } catch (error) {
       console.error('❌ Connect error:', error);
@@ -51,6 +73,8 @@ export const useBankSync = () => {
     setSyncError(null);
 
     try {
+      console.log('🔄 Synchronisation transactions...', { itemId, userId });
+      
       const response = await fetch('/api/bridge/sync', {
         method: 'POST',
         headers: {
@@ -65,6 +89,7 @@ export const useBankSync = () => {
       }
 
       const data = await response.json();
+      console.log('✅ Synchronisation réussie:', data);
       return data;
 
     } catch (error) {
