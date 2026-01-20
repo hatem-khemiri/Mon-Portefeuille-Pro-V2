@@ -35,27 +35,21 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: 'userId requis' });
     }
 
-    // Essayer directement avec external_user_id dans le token endpoint
-    console.log("🔑 Obtention access token avec external_user_id...");
+    console.log("🔑 Obtention access token...");
     
     let accessToken;
     
     try {
       const tokenResponse = await axios.post(
         `${BRIDGE_API_URL}/v3/aggregation/authorization/token`,
-        {
-          external_user_id: userId
-        },
+        { external_user_id: userId },
         { headers: getHeaders() }
       );
       
       accessToken = tokenResponse.data.access_token;
-      console.log("✅ Token obtenu directement");
+      console.log("✅ Token obtenu");
       
     } catch (tokenError) {
-      console.log("❌ Erreur token:", tokenError.response?.data);
-      
-      // Si l'utilisateur n'existe pas, le créer d'abord
       if (tokenError.response?.status === 404) {
         console.log("👤 Création utilisateur...");
         
@@ -65,14 +59,11 @@ export default async function handler(req, res) {
           { headers: getHeaders() }
         );
         
-        console.log("✅ Utilisateur créé, nouvelle tentative token...");
         await new Promise(resolve => setTimeout(resolve, 1000));
         
         const retryTokenResponse = await axios.post(
           `${BRIDGE_API_URL}/v3/aggregation/authorization/token`,
-          {
-            external_user_id: userId
-          },
+          { external_user_id: userId },
           { headers: getHeaders() }
         );
         
@@ -83,17 +74,16 @@ export default async function handler(req, res) {
       }
     }
 
-    // Créer une connect-session avec le token
     console.log("🔗 Création connect-session...");
+    
+    // Essayer avec un body vide d'abord
     const connectResponse = await axios.post(
       `${BRIDGE_API_URL}/v3/aggregation/connect-sessions`,
-      {
-        redirect_url: `https://mon-portefeuille-pro-v2.vercel.app/?bridge_status=success`
-      },
+      {},
       { headers: getHeaders(accessToken) }
     );
 
-    console.log("✅ URL générée:", connectResponse.data.url);
+    console.log("✅ Connect session créée:", connectResponse.data);
 
     return res.status(200).json({
       connectUrl: connectResponse.data.url,
@@ -101,7 +91,10 @@ export default async function handler(req, res) {
     });
 
   } catch (error) {
-    console.error('❌ Erreur finale:', error.response?.data || error.message);
+    console.error('❌ Erreur:', error.response?.data || error.message);
+    console.error('❌ Status:', error.response?.status);
+    console.error('❌ Full response:', JSON.stringify(error.response?.data, null, 2));
+    
     return res.status(500).json({
       error: 'Erreur lors de la connexion bancaire',
       details: error.response?.data || error.message
