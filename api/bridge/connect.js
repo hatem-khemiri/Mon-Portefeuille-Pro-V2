@@ -76,14 +76,16 @@ export default async function handler(req, res) {
 
     console.log("🔗 Création connect-session...");
     
-    // Essayer avec un body vide d'abord
     const connectResponse = await axios.post(
       `${BRIDGE_API_URL}/v3/aggregation/connect-sessions`,
-      {},
+      {
+        user_email: `user-${userId}@monportfeuille.app`
+      },
       { headers: getHeaders(accessToken) }
     );
 
-    console.log("✅ Connect session créée:", connectResponse.data);
+    console.log("✅ Connect session créée!");
+    console.log("🎉 URL:", connectResponse.data.url);
 
     return res.status(200).json({
       connectUrl: connectResponse.data.url,
@@ -92,8 +94,6 @@ export default async function handler(req, res) {
 
   } catch (error) {
     console.error('❌ Erreur:', error.response?.data || error.message);
-    console.error('❌ Status:', error.response?.status);
-    console.error('❌ Full response:', JSON.stringify(error.response?.data, null, 2));
     
     return res.status(500).json({
       error: 'Erreur lors de la connexion bancaire',
