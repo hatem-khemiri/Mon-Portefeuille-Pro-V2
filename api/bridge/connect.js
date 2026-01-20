@@ -1,12 +1,14 @@
 import axios from 'axios';
 import { getAccessToken } from './utils.js';
 
+const BRIDGE_VERSION = process.env.BRIDGE_VERSION || '2025-01-15';
+
 export default async function handler(req, res) {
   console.log("📥 REQ BODY:", req.body);
   console.log("🔧 ENV CHECK:", {
     id: !!process.env.BRIDGE_CLIENT_ID,
     secret: !!process.env.BRIDGE_CLIENT_SECRET,
-    version: process.env.BRIDGE_VERSION
+    version: BRIDGE_VERSION
   });
 
   if (req.method !== 'POST') {
@@ -37,7 +39,7 @@ export default async function handler(req, res) {
       },
       {
         headers: {
-          'Bridge-Version': '2021-06-01',
+          'Bridge-Version': BRIDGE_VERSION,
           'Client-Id': process.env.BRIDGE_CLIENT_ID,
           'Client-Secret': process.env.BRIDGE_CLIENT_SECRET,
           'Authorization': `Bearer ${accessToken}`,

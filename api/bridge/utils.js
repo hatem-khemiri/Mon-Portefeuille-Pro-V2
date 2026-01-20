@@ -1,6 +1,7 @@
 import axios from 'axios';
 
 const BRIDGE_API_URL = 'https://api.bridgeapi.io';
+const BRIDGE_VERSION = process.env.BRIDGE_VERSION || '2025-01-15';
 
 export async function getAccessToken(userId) {
   try {
@@ -14,7 +15,7 @@ export async function getAccessToken(userId) {
       },
       {
         headers: {
-          'Bridge-Version': '2021-06-01',
+          'Bridge-Version': BRIDGE_VERSION,
           'Client-Id': process.env.BRIDGE_CLIENT_ID,
           'Client-Secret': process.env.BRIDGE_CLIENT_SECRET,
           'Content-Type': 'application/json'
@@ -38,7 +39,7 @@ export async function getAccessToken(userId) {
           },
           {
             headers: {
-              'Bridge-Version': '2021-06-01',
+              'Bridge-Version': BRIDGE_VERSION,
               'Client-Id': process.env.BRIDGE_CLIENT_ID,
               'Client-Secret': process.env.BRIDGE_CLIENT_SECRET,
               'Content-Type': 'application/json'
