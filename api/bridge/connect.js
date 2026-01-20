@@ -2,12 +2,11 @@ import axios from 'axios';
 import { getAccessToken } from './utils.js';
 
 export default async function handler(req, res) {
-  console.log("REQ BODY:", req.body);
-  console.log("ENV CHECK:", {
+  console.log("📥 REQ BODY:", req.body);
+  console.log("🔧 ENV CHECK:", {
     id: !!process.env.BRIDGE_CLIENT_ID,
     secret: !!process.env.BRIDGE_CLIENT_SECRET,
-    version: process.env.BRIDGE_VERSION,
-    vercelUrl: process.env.VERCEL_URL
+    version: process.env.BRIDGE_VERSION
   });
 
   if (req.method !== 'POST') {
@@ -15,18 +14,8 @@ export default async function handler(req, res) {
   }
 
   try {
-    // Vérifier que les variables d'environnement sont présentes
-    if (
-      !process.env.BRIDGE_CLIENT_ID ||
-      !process.env.BRIDGE_CLIENT_SECRET ||
-      !process.env.BRIDGE_VERSION
-    ) {
-      console.error("ENV MANQUANTE", {
-        id: !!process.env.BRIDGE_CLIENT_ID,
-        secret: !!process.env.BRIDGE_CLIENT_SECRET,
-        version: process.env.BRIDGE_VERSION
-      });
-
+    if (!process.env.BRIDGE_CLIENT_ID || !process.env.BRIDGE_CLIENT_SECRET) {
+      console.error("❌ ENV MANQUANTE");
       return res.status(500).json({ error: "Configuration serveur manquante" });
     }
 
@@ -36,16 +25,19 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: 'userId requis' });
     }
 
-    // Obtenir un access token pour cet utilisateur (crée l'utilisateur si nécessaire)
+    console.log("🔑 Getting access token for:", userId);
     const accessToken = await getAccessToken(userId);
 
-    // Générer un lien de connexion Bridge avec la nouvelle API v3
+    console.log("🔗 Creating connect session...");
+    
     const response = await axios.post(
-      'https://api.bridgeapi.io/v3/aggregation/connect-sessions',
-      {},
+      'https://api.bridgeapi.io/v2/connect/items/add',
+      {
+        prefill_email: `user-${userId}@monportfeuille.app`
+      },
       {
         headers: {
-          'Bridge-Version': process.env.BRIDGE_VERSION,
+          'Bridge-Version': '2021-06-01',
           'Client-Id': process.env.BRIDGE_CLIENT_ID,
           'Client-Secret': process.env.BRIDGE_CLIENT_SECRET,
           'Authorization': `Bearer ${accessToken}`,
@@ -54,17 +46,16 @@ export default async function handler(req, res) {
       }
     );
 
+    console.log("✅ Connect URL generated:", response.data.redirect_url);
+
     return res.status(200).json({
-      connectUrl: response.data.url,
+      connectUrl: response.data.redirect_url,
       userId
     });
 
   } catch (error) {
-    console.error(
-      'Erreur Bridge Connect:',
-      error.response?.data || error.message
-    );
-
+    console.error('❌ Bridge Error:', error.response?.data || error.message);
+    
     return res.status(500).json({
       error: 'Erreur lors de la connexion bancaire',
       details: error.response?.data || error.message
