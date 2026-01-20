@@ -30,13 +30,12 @@ export default async function handler(req, res) {
     console.log("🔑 Getting access token for:", userId);
     const accessToken = await getAccessToken(userId);
 
-    console.log("🔗 Creating connect session...");
+    console.log("🔗 [v3] Creating connect session...");
     
+    // V3: Créer une session de connexion
     const response = await axios.post(
-      'https://api.bridgeapi.io/v2/connect/items/add',
-      {
-        prefill_email: `user-${userId}@monportfeuille.app`
-      },
+      'https://api.bridgeapi.io/v3/aggregation/connect-sessions',
+      {},
       {
         headers: {
           'Bridge-Version': BRIDGE_VERSION,
@@ -48,10 +47,10 @@ export default async function handler(req, res) {
       }
     );
 
-    console.log("✅ Connect URL generated:", response.data.redirect_url);
+    console.log("✅ Connect URL generated:", response.data.url);
 
     return res.status(200).json({
-      connectUrl: response.data.redirect_url,
+      connectUrl: response.data.url,
       userId
     });
 
