@@ -4,14 +4,14 @@ import { useFinance } from '../../contexts/FinanceContext';
 import { useBankSync } from '../../hooks/useBankSync';
 
 export const BankConnection = () => {
-  const { currentUser } = useFinance();
+  const { currentUser, transactions, setTransactions } = useFinance();
   const { connectBank, syncTransactions, disconnectBank, isSyncing, syncError } = useBankSync();
   
   const [bankConnection, setBankConnection] = useState(null);
   const [lastSync, setLastSync] = useState(null);
   const [showDisconnectConfirm, setShowDisconnectConfirm] = useState(false);
 
-  // Charger l'état de connexion depuis localStorage
+  // Charger l'état de connexion
   useEffect(() => {
     const savedConnection = localStorage.getItem(`bank_connection_${currentUser}`);
     if (savedConnection) {
@@ -22,20 +22,16 @@ export const BankConnection = () => {
   // Gérer le retour de Bridge après connexion
   useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search);
-    const itemId = urlParams.get('bridge_item_id');
-    const userId = urlParams.get('bridge_user_id');
     const status = urlParams.get('bridge_status');
-
-    if (status === 'success' && itemId && userId) {
-      const connection = { itemId, userId, connectedAt: new Date().toISOString() };
-      setBankConnection(connection);
-      localStorage.setItem(`bank_connection_${currentUser}`, JSON.stringify(connection));
+    
+    if (status === 'success') {
+      console.log('🎉 Retour Bridge avec succès');
       
       // Nettoyer l'URL
       window.history.replaceState({}, document.title, window.location.pathname);
       
-      // Synchroniser immédiatement
-      handleSync(itemId, userId);
+      // Déclencher une synchronisation pour découvrir l'item_id
+      handleSyncAfterConnection();
     }
   }, []);
 
@@ -47,19 +43,87 @@ export const BankConnection = () => {
     }
   };
 
-  const handleSync = async (itemId = bankConnection?.itemId, userId = bankConnection?.userId) => {
+  const handleSyncAfterConnection = async () => {
     try {
-      const result = await syncTransactions(itemId, userId);
-      setLastSync(new Date().toISOString());
-      alert(`✅ ${result.transactionsCount} transactions synchronisées !`);
+      console.log('🔄 Synchronisation après connexion...');
+      
+      // Pour l'instant, on fait une requête pour lister les items
+      const response = await fetch('/api/bridge/items', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId: currentUser })
+      });
+      
+      if (!response.ok) throw new Error('Erreur récupération items');
+      
+      const { items } = await response.json();
+      
+      if (items && items.length > 0) {
+        const latestItem = items[0]; // Prendre le plus récent
+        
+        // Sauvegarder la connexion
+        const connection = { 
+          itemId: latestItem.id, 
+          userId: currentUser,
+          bankName: latestItem.bank_name,
+          connectedAt: new Date().toISOString() 
+        };
+        
+        setBankConnection(connection);
+        localStorage.setItem(`bank_connection_${currentUser}`, JSON.stringify(connection));
+        
+        // Synchroniser les transactions
+        await handleSync(latestItem.id);
+      }
+      
     } catch (error) {
+      console.error('❌ Erreur sync après connexion:', error);
+      alert(`❌ Erreur : ${error.message}`);
+    }
+  };
+
+  const handleSync = async (itemId = bankConnection?.itemId) => {
+    try {
+      console.log('🔄 Synchronisation transactions...', { itemId, userId: currentUser });
+      
+      const result = await syncTransactions(itemId, currentUser);
+      
+      console.log('✅ Résultat sync:', result);
+      
+      if (result.transactions && result.transactions.length > 0) {
+        // Fusionner avec les transactions existantes
+        const existingTransactions = transactions || [];
+        const bridgeIds = new Set(existingTransactions.map(t => t.bridgeId).filter(Boolean));
+        
+        // Ajouter uniquement les nouvelles transactions
+        const newTransactions = result.transactions.filter(t => !bridgeIds.has(t.bridgeId));
+        
+        if (newTransactions.length > 0) {
+          const updatedTransactions = [...existingTransactions, ...newTransactions];
+          setTransactions(updatedTransactions);
+          
+          // Sauvegarder dans localStorage
+          localStorage.setItem(`transactions_${currentUser}`, JSON.stringify(updatedTransactions));
+        }
+        
+        setLastSync(new Date().toISOString());
+        alert(`✅ ${result.transactions.length} transactions synchronisées ! (${newTransactions.length} nouvelles)`);
+      } else {
+        alert('ℹ️ Aucune transaction trouvée');
+      }
+      
+    } catch (error) {
+      console.error('❌ Erreur sync:', error);
       alert(`❌ Erreur : ${error.message}`);
     }
   };
 
   const handleDisconnect = async () => {
     try {
-      await disconnectBank(bankConnection.itemId);
+      if (bankConnection?.itemId) {
+        await disconnectBank(bankConnection.itemId);
+      }
+      
       setBankConnection(null);
       setLastSync(null);
       localStorage.removeItem(`bank_connection_${currentUser}`);
@@ -107,11 +171,11 @@ export const BankConnection = () => {
       
       <div className="bg-green-50 border-2 border-green-200 rounded-xl p-4 mb-4">
         <p className="text-sm text-green-800 mb-2">
-          ✅ Votre banque est connectée et synchronisée
+          ✅ {bankConnection.bankName || 'Banque'} connectée
         </p>
         {lastSync && (
           <p className="text-xs text-green-700">
-            Dernière synchronisation : {new Date(lastSync).toLocaleString('fr-FR')}
+            Dernière sync : {new Date(lastSync).toLocaleString('fr-FR')}
           </p>
         )}
       </div>
@@ -137,9 +201,6 @@ export const BankConnection = () => {
         ) : (
           <div className="bg-red-50 border-2 border-red-300 rounded-xl p-4">
             <p className="text-sm font-bold text-red-800 mb-3">⚠️ Confirmer la déconnexion ?</p>
-            <p className="text-xs text-red-700 mb-4">
-              Toutes les transactions synchronisées seront supprimées.
-            </p>
             <div className="grid grid-cols-2 gap-3">
               <button
                 onClick={() => setShowDisconnectConfirm(false)}
