@@ -19,8 +19,6 @@ function getHeaders(accessToken = null) {
 }
 
 export default async function handler(req, res) {
-  console.log("📥 REQ BODY:", req.body);
-
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
   }
@@ -35,8 +33,6 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: 'userId requis' });
     }
 
-    console.log("🔑 Obtention access token...");
-    
     let accessToken;
     
     try {
@@ -47,12 +43,9 @@ export default async function handler(req, res) {
       );
       
       accessToken = tokenResponse.data.access_token;
-      console.log("✅ Token obtenu");
       
     } catch (tokenError) {
       if (tokenError.response?.status === 404) {
-        console.log("👤 Création utilisateur...");
-        
         await axios.post(
           `${BRIDGE_API_URL}/v3/aggregation/users`,
           { external_user_id: userId },
@@ -68,26 +61,18 @@ export default async function handler(req, res) {
         );
         
         accessToken = retryTokenResponse.data.access_token;
-        console.log("✅ Token obtenu après création");
       } else {
         throw tokenError;
       }
     }
 
-    console.log("🔗 Création connect-session...");
-    
-    // Forcer une redirect_url explicite
     const connectResponse = await axios.post(
       `${BRIDGE_API_URL}/v3/aggregation/connect-sessions`,
       {
-        user_email: `user-${userId}@monportfeuille.app`,
-        redirect_url: 'https://mon-portefeuille-pro-v2.vercel.app'
+        user_email: `user-${userId}@monportfeuille.app`
       },
       { headers: getHeaders(accessToken) }
     );
-
-    console.log("✅ Connect session créée avec redirect_url!");
-    console.log("🔗 Redirect URL:", 'https://mon-portefeuille-pro-v2.vercel.app');
 
     return res.status(200).json({
       connectUrl: connectResponse.data.url,
