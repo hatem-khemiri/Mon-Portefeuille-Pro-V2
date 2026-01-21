@@ -35,11 +35,12 @@ function AppContent() {
     comptes,
     setComptes,
     transactions,
+    setTransactions,
     chargesFixes,
     setChargesFixes,
     epargnes,
     setEpargnes,
-    dettes, // ✅ AJOUT : Déstructurer dettes depuis useFinance
+    dettes,
     setDateCreationCompte,
     categoriesDepenses,
     categoriesRevenus,
@@ -54,6 +55,110 @@ function AppContent() {
   const [onboardingStep, setOnboardingStep] = useState(0);
   const [activeTab, setActiveTab] = useState('dashboard');
   const [notification, setNotification] = useState(null);
+  const [isProcessingCallback, setIsProcessingCallback] = useState(false);
+
+  // Gérer le callback Bridge
+  useEffect(() => {
+    const handleBridgeCallback = async () => {
+      const urlParams = new URLSearchParams(window.location.search);
+      const userId = urlParams.get('userId');
+
+      if (!userId) return;
+
+      console.log('📞 Callback Bridge détecté pour:', userId);
+      setIsProcessingCallback(true);
+
+      try {
+        // Récupérer les items
+        const itemsResponse = await fetch('/api/bridge/items', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ userId })
+        });
+
+        if (!itemsResponse.ok) throw new Error('Erreur récupération items');
+
+        const { items } = await itemsResponse.json();
+        console.log('✅ Items récupérés:', items);
+
+        if (items && items.length > 0) {
+          const latestItem = items[0];
+
+          // Sauvegarder la connexion bancaire
+          localStorage.setItem(`bank_connection_${userId}`, JSON.stringify({
+            itemId: latestItem.id,
+            userId: userId,
+            bankName: latestItem.bank_name,
+            connectedAt: new Date().toISOString()
+          }));
+
+          // Synchroniser les transactions
+          console.log('🔄 Synchronisation transactions...');
+          
+          const syncResponse = await fetch('/api/bridge/sync', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ itemId: latestItem.id, userId })
+          });
+
+          if (!syncResponse.ok) throw new Error('Erreur synchronisation');
+
+          const syncData = await syncResponse.json();
+          console.log('✅ Transactions reçues:', syncData);
+
+          // Ajouter les transactions au contexte
+          if (syncData.transactions && syncData.transactions.length > 0) {
+            const existingTransactions = transactions || [];
+            const bridgeIds = new Set(
+              existingTransactions
+                .filter(t => t.bridgeId)
+                .map(t => t.bridgeId)
+            );
+
+            const newTransactions = syncData.transactions.filter(
+              t => !bridgeIds.has(t.bridgeId)
+            );
+
+            if (newTransactions.length > 0) {
+              const updatedTransactions = [...existingTransactions, ...newTransactions];
+              setTransactions(updatedTransactions);
+              
+              console.log(`✅ ${newTransactions.length} nouvelles transactions ajoutées au contexte`);
+              
+              setNotification({ 
+                type: 'success', 
+                message: `✅ ${newTransactions.length} transaction(s) synchronisée(s) !` 
+              });
+              
+              // Rediriger vers l'onglet transactions
+              setActiveTab('transactions');
+            } else {
+              setNotification({ 
+                type: 'info', 
+                message: 'ℹ️ Aucune nouvelle transaction à synchroniser' 
+              });
+            }
+          }
+        }
+
+        // Nettoyer l'URL
+        window.history.replaceState({}, document.title, window.location.pathname);
+
+      } catch (error) {
+        console.error('❌ Erreur callback:', error);
+        setNotification({ 
+          type: 'error', 
+          message: `❌ Erreur synchronisation : ${error.message}` 
+        });
+      } finally {
+        setIsProcessingCallback(false);
+      }
+    };
+
+    if (currentUser) {
+      handleBridgeCallback();
+    }
+  }, [currentUser]);
 
   // Charger l'utilisateur au démarrage
   useEffect(() => {
@@ -63,7 +168,6 @@ function AppContent() {
         setCurrentUser(username);
         await loadData(username);
         
-        // Vérifier si l'onboarding est complété
         const data = localStorage.getItem(`user_data_${username}`);
         if (data) {
           const parsed = JSON.parse(data);
@@ -88,7 +192,6 @@ function AppContent() {
     setShowAuth(false);
     await loadData(username);
     
-    // Vérifier si l'onboarding est complété
     const data = localStorage.getItem(`user_data_${username}`);
     if (data) {
       const parsed = JSON.parse(data);
@@ -115,11 +218,9 @@ function AppContent() {
   };
 
   const handleOnboardingComplete = (onboardingData) => {
-    // Enregistrer la date de création
     const dateCreation = new Date().toISOString();
     setDateCreationCompte(dateCreation);
     
-    // Créer les comptes
     const nouveauxComptes = onboardingData.comptes.map((c, i) => {
       const soldeInitialFixe = parseFloat(c.solde);
       return {
@@ -132,7 +233,6 @@ function AppContent() {
     });
     setComptes(nouveauxComptes);
 
-    // Créer les charges fixes
     const nouvellesCharges = [...onboardingData.revenus, ...onboardingData.charges, ...onboardingData.transferts].map((c, i) => {
       if (c.type === 'transfert') {
         return {
@@ -162,7 +262,6 @@ function AppContent() {
     });
     setChargesFixes(nouvellesCharges);
 
-    // Créer les épargnes
     const nouvellesEpargnes = onboardingData.epargnes.map((e, i) => ({
       id: Date.now() + i + 2000,
       ...e,
@@ -170,12 +269,10 @@ function AppContent() {
     }));
     setEpargnes(nouvellesEpargnes);
 
-    // Générer les transactions pour toute l'année 
     setTimeout(() => {
       genererTransactionsChargesFixes(nouvellesCharges, dateCreation);
-    }, 500);                                        
+    }, 500);
 
-    // Terminer l'onboarding
     setOnboardingStep(0);
   };
 
@@ -183,10 +280,8 @@ function AppContent() {
     setNotification({ type: 'info', message: '📄 Génération du rapport en cours...' });
 
     try {
-      // Importer la fonction de génération du rapport
       const { generateReport } = await import('./utils/reportGenerator');
   
-      // Générer le rapport HTML
       const reportHTML = generateReport({
         currentUser,
         comptes,
@@ -199,24 +294,18 @@ function AppContent() {
         categoriesEpargnes
       });
   
-      // Créer un Blob avec le HTML
       const blob = new Blob([reportHTML], { type: 'text/html;charset=utf-8' });
       const url = URL.createObjectURL(blob);
     
-      // Ouvrir directement dans un nouvel onglet
       const newWindow = window.open(url, '_blank');
     
       if (newWindow) {
-        // Succès : la fenêtre s'est ouverte
         setNotification({ 
           type: 'success', 
           message: '✅ Rapport ouvert dans un nouvel onglet ! Vous pouvez l\'imprimer ou le sauvegarder.' 
         });
-      
-        // Libérer la mémoire après un délai
         setTimeout(() => URL.revokeObjectURL(url), 30000);
       } else {
-        // Échec : popup bloquée
         setNotification({ 
           type: 'warning', 
           message: '⚠️ Pop-up bloquée ! Autorisez les pop-ups pour ce site et réessayez.' 
@@ -229,12 +318,14 @@ function AppContent() {
     }
   };
 
-  if (isLoading) {
+  if (isLoading || isProcessingCallback) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-blue-50 via-purple-50 to-pink-50 flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-16 w-16 border-b-4 border-blue-500 mx-auto mb-4"></div>
-          <p className="text-gray-600">Chargement...</p>
+          <p className="text-gray-600">
+            {isProcessingCallback ? 'Synchronisation en cours...' : 'Chargement...'}
+          </p>
         </div>
       </div>
     );

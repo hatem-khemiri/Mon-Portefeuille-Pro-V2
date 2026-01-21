@@ -79,13 +79,13 @@ export default async function handler(req, res) {
     const connectResponse = await axios.post(
       `${BRIDGE_API_URL}/v3/aggregation/connect-sessions`,
       {
-        user_email: `user-${userId}@monportfeuille.app`
+        user_email: `user-${userId}@monportfeuille.app`,
+        redirect_url: `https://mon-portefeuille-pro-v2.vercel.app/callback?userId=${userId}`
       },
       { headers: getHeaders(accessToken) }
     );
 
     console.log("✅ Connect session créée!");
-    console.log("🎉 URL:", connectResponse.data.url);
 
     return res.status(200).json({
       connectUrl: connectResponse.data.url,
