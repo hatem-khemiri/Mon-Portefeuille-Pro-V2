@@ -10,6 +10,7 @@ export const BankConnection = () => {
   const [bankConnection, setBankConnection] = useState(null);
   const [lastSync, setLastSync] = useState(null);
   const [showDisconnectConfirm, setShowDisconnectConfirm] = useState(false);
+  const [hasAutoSynced, setHasAutoSynced] = useState(false);
 
   // Charger l'état de connexion
   useEffect(() => {
@@ -19,74 +20,78 @@ export const BankConnection = () => {
     }
   }, [currentUser]);
 
-  // Gérer le retour de Bridge après connexion
+  // Auto-sync au chargement si connexion existe
   useEffect(() => {
-    const urlParams = new URLSearchParams(window.location.search);
-    const status = urlParams.get('bridge_status');
-    
-    if (status === 'success') {
-      console.log('🎉 Retour Bridge avec succès');
-      window.history.replaceState({}, document.title, window.location.pathname);
-      handleSyncAfterConnection();
-    }
-  }, []);
+    const autoSync = async () => {
+      if (bankConnection && !hasAutoSynced && currentUser) {
+        console.log('🔄 Auto-synchronisation au chargement...');
+        setHasAutoSynced(true);
+        
+        try {
+          // Vérifier si on a un itemId
+          if (!bankConnection.itemId) {
+            // Récupérer les items pour obtenir l'itemId
+            console.log('🔍 Recherche item_id...');
+            const itemsResponse = await fetch('/api/bridge/items', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ userId: currentUser })
+            });
+
+            if (itemsResponse.ok) {
+              const { items } = await itemsResponse.json();
+              if (items && items.length > 0) {
+                const updatedConnection = {
+                  ...bankConnection,
+                  itemId: items[0].id,
+                  bankName: items[0].bank_name
+                };
+                setBankConnection(updatedConnection);
+                localStorage.setItem(`bank_connection_${currentUser}`, JSON.stringify(updatedConnection));
+                
+                // Synchroniser avec le nouvel itemId
+                await handleSync(items[0].id);
+              }
+            }
+          } else {
+            // On a déjà l'itemId, synchroniser directement
+            await handleSync(bankConnection.itemId);
+          }
+        } catch (error) {
+          console.error('❌ Erreur auto-sync:', error);
+        }
+      }
+    };
+
+    autoSync();
+  }, [bankConnection, currentUser, hasAutoSynced]);
 
   const handleConnect = async () => {
     try {
       await connectBank(currentUser);
+      // Après connexion, marquer pour forcer un refresh
+      setTimeout(() => {
+        window.location.reload();
+      }, 2000);
     } catch (error) {
-      alert(`❌ Erreur : ${error.message}`);
-    }
-  };
-
-  const handleSyncAfterConnection = async () => {
-    try {
-      console.log('🔄 Synchronisation après connexion...');
-      
-      const response = await fetch('/api/bridge/items', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId: currentUser })
-      });
-      
-      if (!response.ok) throw new Error('Erreur récupération items');
-      
-      const { items } = await response.json();
-      
-      if (items && items.length > 0) {
-        const latestItem = items[0];
-        
-        const connection = { 
-          itemId: latestItem.id, 
-          userId: currentUser,
-          bankName: latestItem.bank_name,
-          connectedAt: new Date().toISOString() 
-        };
-        
-        setBankConnection(connection);
-        localStorage.setItem(`bank_connection_${currentUser}`, JSON.stringify(connection));
-        
-        await handleSync(latestItem.id);
-      }
-      
-    } catch (error) {
-      console.error('❌ Erreur sync après connexion:', error);
       alert(`❌ Erreur : ${error.message}`);
     }
   };
 
   const handleSync = async (itemId = bankConnection?.itemId) => {
+    if (!itemId) {
+      console.error('❌ Pas d\'itemId pour la synchronisation');
+      return;
+    }
+
     try {
-      console.log('🔄 Lancement synchronisation...', { itemId, userId: currentUser });
+      console.log('🔄 Synchronisation...', { itemId, userId: currentUser });
       
       const result = await syncTransactions(itemId, currentUser);
       
-      console.log('📊 Résultat sync:', result);
+      console.log('📊 Résultat:', result);
       
       if (result.transactions && result.transactions.length > 0) {
-        console.log(`✅ ${result.transactions.length} transactions récupérées de Bridge`);
-        
-        // IMPORTANT: Fusionner avec les transactions existantes
         const existingTransactions = transactions || [];
         const bridgeIds = new Set(
           existingTransactions
@@ -94,31 +99,28 @@ export const BankConnection = () => {
             .map(t => t.bridgeId)
         );
         
-        // Filtrer uniquement les nouvelles transactions
         const newTransactions = result.transactions.filter(
           t => !bridgeIds.has(t.bridgeId)
         );
         
-        console.log(`📥 ${newTransactions.length} nouvelles transactions à ajouter`);
+        console.log(`📥 ${newTransactions.length} nouvelles transactions sur ${result.transactions.length}`);
         
         if (newTransactions.length > 0) {
-          // Mettre à jour directement le contexte React
           const updatedTransactions = [...existingTransactions, ...newTransactions];
           setTransactions(updatedTransactions);
           
-          console.log('✅ Transactions ajoutées au contexte React');
-          
           setLastSync(new Date().toISOString());
-          alert(`✅ ${newTransactions.length} nouvelles transactions ajoutées !`);
+          alert(`✅ ${newTransactions.length} nouvelle(s) transaction(s) ajoutée(s) !`);
         } else {
-          alert('ℹ️ Aucune nouvelle transaction à synchroniser');
+          setLastSync(new Date().toISOString());
+          alert('ℹ️ Aucune nouvelle transaction');
         }
       } else {
         alert('ℹ️ Aucune transaction trouvée');
       }
       
     } catch (error) {
-      console.error('❌ Erreur handleSync:', error);
+      console.error('❌ Erreur sync:', error);
       alert(`❌ Erreur : ${error.message}`);
     }
   };
@@ -130,11 +132,12 @@ export const BankConnection = () => {
       }
       
       // Supprimer les transactions synchronisées
-      const updatedTransactions = transactions.filter(t => !t.isSynced);
+      const updatedTransactions = (transactions || []).filter(t => !t.isSynced);
       setTransactions(updatedTransactions);
       
       setBankConnection(null);
       setLastSync(null);
+      setHasAutoSynced(false);
       localStorage.removeItem(`bank_connection_${currentUser}`);
       setShowDisconnectConfirm(false);
       alert('✅ Banque déconnectée avec succès');
