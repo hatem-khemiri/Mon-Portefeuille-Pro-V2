@@ -1,16 +1,15 @@
 import { useState, useEffect } from 'react';
 import { RefreshCw, Unlink, AlertCircle } from 'lucide-react';
 import { useFinance } from '../../contexts/FinanceContext';
-import { useBankSync } from '../../hooks/useBankSync';
 
 export const BankConnection = () => {
   const { currentUser, transactions, setTransactions } = useFinance();
-  const { connectBank, syncTransactions, disconnectBank, isSyncing, syncError } = useBankSync();
   
   const [bankConnection, setBankConnection] = useState(null);
+  const [isSyncing, setIsSyncing] = useState(false);
+  const [syncError, setSyncError] = useState(null);
   const [lastSync, setLastSync] = useState(null);
   const [showDisconnectConfirm, setShowDisconnectConfirm] = useState(false);
-  const [hasAutoSynced, setHasAutoSynced] = useState(false);
 
   // Charger l'état de connexion
   useEffect(() => {
@@ -20,159 +19,126 @@ export const BankConnection = () => {
     }
   }, [currentUser]);
 
-  // Auto-sync au chargement si connexion existe
-  useEffect(() => {
-    const autoSync = async () => {
-      if (bankConnection && !hasAutoSynced && currentUser) {
-        console.log('🔄 Auto-synchronisation au chargement...');
-        setHasAutoSynced(true);
-        
-        try {
-          // Vérifier si on a un itemId
-          if (!bankConnection.itemId) {
-            // Récupérer les items pour obtenir l'itemId
-            console.log('🔍 Recherche item_id...');
-            const itemsResponse = await fetch('/api/bridge/items', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ userId: currentUser })
-            });
-
-            if (itemsResponse.ok) {
-              const { items } = await itemsResponse.json();
-              if (items && items.length > 0) {
-                const updatedConnection = {
-                  ...bankConnection,
-                  itemId: items[0].id,
-                  bankName: items[0].bank_name
-                };
-                setBankConnection(updatedConnection);
-                localStorage.setItem(`bank_connection_${currentUser}`, JSON.stringify(updatedConnection));
-                
-                // Synchroniser avec le nouvel itemId
-                await handleSync(items[0].id);
-              }
-            }
-          } else {
-            // On a déjà l'itemId, synchroniser directement
-            await handleSync(bankConnection.itemId);
-          }
-        } catch (error) {
-          console.error('❌ Erreur auto-sync:', error);
-        }
-      }
-    };
-
-    autoSync();
-  }, [bankConnection, currentUser, hasAutoSynced]);
-
   const handleConnect = async () => {
     try {
-      await connectBank(currentUser);
-      // Après connexion, marquer pour forcer un refresh
-      setTimeout(() => {
-        window.location.reload();
-      }, 2000);
+      setSyncError(null);
+      
+      const response = await fetch('/api/bridge/connect', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId: currentUser })
+      });
+
+      if (!response.ok) throw new Error('Erreur connexion');
+
+      const { connectUrl } = await response.json();
+
+      // Ouvrir Bridge
+      window.open(connectUrl, 'Bridge', 'width=500,height=700');
+      
+      alert('📱 Connectez votre banque dans la fenêtre qui s\'est ouverte, puis revenez ici et cliquez sur "Récupérer mes transactions"');
+
     } catch (error) {
       alert(`❌ Erreur : ${error.message}`);
     }
   };
 
-  const handleSync = async (itemId = bankConnection?.itemId) => {
-    if (!itemId) {
-      console.error('❌ Pas d\'itemId pour la synchronisation');
-      return;
-    }
+  const handleFetchTransactions = async () => {
+    setIsSyncing(true);
+    setSyncError(null);
 
     try {
-      console.log('🔄 Synchronisation...', { itemId, userId: currentUser });
+      console.log('🔍 Récupération des items Bridge...');
       
-      const result = await syncTransactions(itemId, currentUser);
-      
-      console.log('📊 Résultat:', result);
-      
-      if (result.transactions && result.transactions.length > 0) {
-        const existingTransactions = transactions || [];
-        const bridgeIds = new Set(
-          existingTransactions
-            .filter(t => t.bridgeId)
-            .map(t => t.bridgeId)
-        );
+      // Étape 1 : Récupérer les items (connexions bancaires)
+      const itemsResponse = await fetch('/api/bridge/items', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId: currentUser })
+      });
+
+      if (!itemsResponse.ok) throw new Error('Impossible de récupérer les connexions bancaires');
+
+      const { items } = await itemsResponse.json();
+      console.log('✅ Items trouvés:', items);
+
+      if (!items || items.length === 0) {
+        alert('❌ Aucune banque connectée. Cliquez sur "Connecter ma banque" d\'abord.');
+        setIsSyncing(false);
+        return;
+      }
+
+      const item = items[0];
+
+      // Sauvegarder la connexion
+      const connection = {
+        itemId: item.id,
+        userId: currentUser,
+        bankName: item.bank_name,
+        connectedAt: new Date().toISOString()
+      };
+      setBankConnection(connection);
+      localStorage.setItem(`bank_connection_${currentUser}`, JSON.stringify(connection));
+
+      console.log('🔄 Synchronisation des transactions...');
+
+      // Étape 2 : Synchroniser les transactions
+      const syncResponse = await fetch('/api/bridge/sync', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ itemId: item.id, userId: currentUser })
+      });
+
+      if (!syncResponse.ok) throw new Error('Erreur synchronisation transactions');
+
+      const syncData = await syncResponse.json();
+      console.log('✅ Données reçues:', syncData);
+
+      if (syncData.transactions && syncData.transactions.length > 0) {
+        // Fusionner avec les transactions existantes
+        const existing = transactions || [];
+        const bridgeIds = new Set(existing.filter(t => t.bridgeId).map(t => t.bridgeId));
         
-        const newTransactions = result.transactions.filter(
-          t => !bridgeIds.has(t.bridgeId)
-        );
-        
-        console.log(`📥 ${newTransactions.length} nouvelles transactions sur ${result.transactions.length}`);
-        
-        if (newTransactions.length > 0) {
-          const updatedTransactions = [...existingTransactions, ...newTransactions];
-          setTransactions(updatedTransactions);
+        const newTrans = syncData.transactions.filter(t => !bridgeIds.has(t.bridgeId));
+
+        if (newTrans.length > 0) {
+          const updated = [...existing, ...newTrans];
+          setTransactions(updated);
+          setLastSync(new Date().toISOString());
           
-          setLastSync(new Date().toISOString());
-          alert(`✅ ${newTransactions.length} nouvelle(s) transaction(s) ajoutée(s) !`);
+          console.log(`✅ ${newTrans.length} transactions ajoutées au contexte`);
+          alert(`✅ ${newTrans.length} transaction(s) ajoutée(s) ! Allez dans l'onglet "Transactions" pour les voir.`);
         } else {
-          setLastSync(new Date().toISOString());
-          alert('ℹ️ Aucune nouvelle transaction');
+          alert('ℹ️ Toutes les transactions sont déjà synchronisées');
         }
       } else {
         alert('ℹ️ Aucune transaction trouvée');
       }
-      
+
     } catch (error) {
-      console.error('❌ Erreur sync:', error);
+      console.error('❌ Erreur:', error);
+      setSyncError(error.message);
       alert(`❌ Erreur : ${error.message}`);
+    } finally {
+      setIsSyncing(false);
     }
   };
 
   const handleDisconnect = async () => {
-    try {
-      if (bankConnection?.itemId) {
-        await disconnectBank(bankConnection.itemId);
-      }
-      
-      // Supprimer les transactions synchronisées
-      const updatedTransactions = (transactions || []).filter(t => !t.isSynced);
-      setTransactions(updatedTransactions);
-      
-      setBankConnection(null);
-      setLastSync(null);
-      setHasAutoSynced(false);
-      localStorage.removeItem(`bank_connection_${currentUser}`);
-      setShowDisconnectConfirm(false);
-      alert('✅ Banque déconnectée avec succès');
-    } catch (error) {
-      alert(`❌ Erreur : ${error.message}`);
-    }
+    // Supprimer les transactions synchronisées
+    const updated = (transactions || []).filter(t => !t.isSynced);
+    setTransactions(updated);
+    
+    setBankConnection(null);
+    setLastSync(null);
+    localStorage.removeItem(`bank_connection_${currentUser}`);
+    setShowDisconnectConfirm(false);
+    alert('✅ Banque déconnectée');
   };
-
-  if (!bankConnection) {
-    return (
-      <div className="bg-white/80 backdrop-blur-xl rounded-2xl shadow-xl p-6">
-        <h3 className="text-xl font-bold mb-4">🏦 Synchronisation bancaire</h3>
-        <div className="bg-blue-50 border-2 border-blue-200 rounded-xl p-4 mb-4">
-          <p className="text-sm text-blue-800 mb-3">
-            Connectez votre banque pour synchroniser automatiquement vos transactions.
-          </p>
-          <ul className="text-sm text-blue-700 space-y-1 list-disc list-inside">
-            <li>+400 banques françaises compatibles</li>
-            <li>Synchronisation sécurisée via Bridge</li>
-            <li>Mise à jour automatique des transactions</li>
-          </ul>
-        </div>
-        <button
-          onClick={handleConnect}
-          className="w-full py-3 bg-gradient-to-r from-blue-500 to-purple-600 text-white rounded-xl font-medium hover:shadow-lg transition-all"
-        >
-          🏦 Connecter ma banque
-        </button>
-      </div>
-    );
-  }
 
   return (
     <div className="bg-white/80 backdrop-blur-xl rounded-2xl shadow-xl p-6">
-      <h3 className="text-xl font-bold mb-4">🏦 Banque connectée</h3>
+      <h3 className="text-xl font-bold mb-4">🏦 Synchronisation bancaire</h3>
       
       {syncError && (
         <div className="bg-red-50 border-2 border-red-200 rounded-xl p-4 mb-4 flex items-start gap-3">
@@ -180,55 +146,78 @@ export const BankConnection = () => {
           <p className="text-sm text-red-800">{syncError}</p>
         </div>
       )}
-      
-      <div className="bg-green-50 border-2 border-green-200 rounded-xl p-4 mb-4">
-        <p className="text-sm text-green-800 mb-2">
-          ✅ {bankConnection.bankName || 'Banque'} connectée
-        </p>
-        {lastSync && (
-          <p className="text-xs text-green-700">
-            Dernière sync : {new Date(lastSync).toLocaleString('fr-FR')}
+
+      {bankConnection && (
+        <div className="bg-green-50 border-2 border-green-200 rounded-xl p-4 mb-4">
+          <p className="text-sm text-green-800 mb-2">
+            ✅ {bankConnection.bankName || 'Banque'} connectée
           </p>
-        )}
-      </div>
+          {lastSync && (
+            <p className="text-xs text-green-700">
+              Dernière sync : {new Date(lastSync).toLocaleString('fr-FR')}
+            </p>
+          )}
+        </div>
+      )}
 
       <div className="space-y-3">
         <button
-          onClick={() => handleSync()}
-          disabled={isSyncing}
-          className="w-full py-3 bg-blue-500 text-white rounded-xl font-medium hover:bg-blue-600 transition-all flex items-center justify-center gap-2 disabled:opacity-50"
+          onClick={handleConnect}
+          className="w-full py-3 bg-gradient-to-r from-blue-500 to-purple-600 text-white rounded-xl font-medium hover:shadow-lg transition-all"
         >
-          <RefreshCw size={20} className={isSyncing ? 'animate-spin' : ''} />
-          {isSyncing ? 'Synchronisation...' : 'Synchroniser maintenant'}
+          🏦 {bankConnection ? 'Reconnecter une banque' : 'Connecter ma banque'}
         </button>
 
-        {!showDisconnectConfirm ? (
-          <button
-            onClick={() => setShowDisconnectConfirm(true)}
-            className="w-full py-3 bg-red-100 text-red-600 rounded-xl font-medium hover:bg-red-200 transition-all flex items-center justify-center gap-2"
-          >
-            <Unlink size={20} />
-            Déconnecter ma banque
-          </button>
-        ) : (
-          <div className="bg-red-50 border-2 border-red-300 rounded-xl p-4">
-            <p className="text-sm font-bold text-red-800 mb-3">⚠️ Confirmer la déconnexion ?</p>
-            <div className="grid grid-cols-2 gap-3">
+        <button
+          onClick={handleFetchTransactions}
+          disabled={isSyncing}
+          className="w-full py-3 bg-green-500 text-white rounded-xl font-medium hover:bg-green-600 transition-all flex items-center justify-center gap-2 disabled:opacity-50"
+        >
+          <RefreshCw size={20} className={isSyncing ? 'animate-spin' : ''} />
+          {isSyncing ? 'Récupération...' : '📥 Récupérer mes transactions'}
+        </button>
+
+        {bankConnection && (
+          <>
+            {!showDisconnectConfirm ? (
               <button
-                onClick={() => setShowDisconnectConfirm(false)}
-                className="py-2 bg-gray-200 text-gray-700 rounded-lg font-medium hover:bg-gray-300"
+                onClick={() => setShowDisconnectConfirm(true)}
+                className="w-full py-3 bg-red-100 text-red-600 rounded-xl font-medium hover:bg-red-200 transition-all flex items-center justify-center gap-2"
               >
-                Annuler
+                <Unlink size={20} />
+                Déconnecter ma banque
               </button>
-              <button
-                onClick={handleDisconnect}
-                className="py-2 bg-red-600 text-white rounded-lg font-medium hover:bg-red-700"
-              >
-                Confirmer
-              </button>
-            </div>
-          </div>
+            ) : (
+              <div className="bg-red-50 border-2 border-red-300 rounded-xl p-4">
+                <p className="text-sm font-bold text-red-800 mb-3">⚠️ Confirmer ?</p>
+                <div className="grid grid-cols-2 gap-3">
+                  <button
+                    onClick={() => setShowDisconnectConfirm(false)}
+                    className="py-2 bg-gray-200 text-gray-700 rounded-lg font-medium"
+                  >
+                    Annuler
+                  </button>
+                  <button
+                    onClick={handleDisconnect}
+                    className="py-2 bg-red-600 text-white rounded-lg font-medium"
+                  >
+                    Confirmer
+                  </button>
+                </div>
+              </div>
+            )}
+          </>
         )}
+      </div>
+
+      <div className="mt-4 bg-blue-50 border border-blue-200 rounded-xl p-3">
+        <p className="text-xs text-blue-800">
+          💡 <strong>Comment ça marche :</strong><br/>
+          1. Cliquez sur "Connecter ma banque"<br/>
+          2. Connectez Demo Bank dans la popup<br/>
+          3. Revenez ici et cliquez sur "Récupérer mes transactions"<br/>
+          4. Allez dans l'onglet "Transactions" pour voir vos transactions
+        </p>
       </div>
     </div>
   );
