@@ -76,16 +76,18 @@ export default async function handler(req, res) {
 
     console.log("🔗 Création connect-session...");
     
-    // Version simplifiée qui fonctionnait avant
+    // Forcer une redirect_url explicite
     const connectResponse = await axios.post(
       `${BRIDGE_API_URL}/v3/aggregation/connect-sessions`,
       {
-        user_email: `user-${userId}@monportfeuille.app`
+        user_email: `user-${userId}@monportfeuille.app`,
+        redirect_url: 'https://mon-portefeuille-pro-v2.vercel.app'
       },
       { headers: getHeaders(accessToken) }
     );
 
-    console.log("✅ Connect session créée!");
+    console.log("✅ Connect session créée avec redirect_url!");
+    console.log("🔗 Redirect URL:", 'https://mon-portefeuille-pro-v2.vercel.app');
 
     return res.status(200).json({
       connectUrl: connectResponse.data.url,
