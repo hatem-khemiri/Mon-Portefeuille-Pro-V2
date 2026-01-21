@@ -43,78 +43,92 @@ export default async function handler(req, res) {
     const accessToken = tokenResponse.data.access_token;
     console.log("✅ Token obtenu");
 
-    // Récupérer TOUS les comptes de l'utilisateur
-    console.log("📊 Récupération de tous les comptes...");
+    // Méthode 1 : Récupérer les transactions directement via l'item
+    console.log("📊 Méthode 1: Récupération transactions via item...");
     
-    const accountsResponse = await axios.get(
-      `${BRIDGE_API_URL}/v3/aggregation/accounts`,
-      { headers: getHeaders(accessToken) }
-    );
-
-    // Filtrer les comptes de cet item
-    const allAccounts = accountsResponse.data.resources || [];
-    const accounts = allAccounts.filter(a => a.item_id === itemId);
-    
-    console.log(`✅ ${accounts.length} comptes trouvés pour item ${itemId}`);
-
-    if (accounts.length === 0) {
-      console.log("⚠️ Aucun compte trouvé pour cet item");
-      return res.status(200).json({
-        success: true,
-        accounts: [],
-        transactions: [],
-        transactionsCount: 0,
-        syncDate: new Date().toISOString()
-      });
-    }
-
-    // Récupérer les transactions pour chaque compte
     let allTransactions = [];
     
-    for (const account of accounts) {
-      try {
-        console.log(`📄 Compte: ${account.name} (${account.id})`);
-        
-        const transactionsResponse = await axios.get(
-          `${BRIDGE_API_URL}/v3/aggregation/accounts/${account.id}/transactions`,
-          { 
-            headers: getHeaders(accessToken),
-            params: { limit: 100 }
-          }
-        );
-        
-        const accountTransactions = (transactionsResponse.data.resources || []).map(t => ({
-          id: `bridge_${t.id}`,
-          date: t.date,
-          description: t.description || t.clean_description || t.bank_description || 'Transaction',
-          montant: parseFloat(t.amount),
-          categorie: 'Autres dépenses',
-          compte: account.name,
-          statut: 'realisee',
-          type: 'bancaire',
-          bridgeId: t.id,
-          bridgeAccountId: account.id,
-          isSynced: true
-        }));
-        
-        allTransactions = [...allTransactions, ...accountTransactions];
-        console.log(`  ✅ ${accountTransactions.length} transactions`);
-        
-      } catch (error) {
-        console.error(`❌ Erreur compte ${account.name}:`, error.response?.data || error.message);
+    try {
+      const itemTransactionsResponse = await axios.get(
+        `${BRIDGE_API_URL}/v3/aggregation/items/${itemId}/transactions`,
+        { 
+          headers: getHeaders(accessToken),
+          params: { limit: 500 }
+        }
+      );
+      
+      const itemTransactions = (itemTransactionsResponse.data.resources || []).map(t => ({
+        id: `bridge_${t.id}`,
+        date: t.date,
+        description: t.description || t.clean_description || t.bank_description || 'Transaction',
+        montant: parseFloat(t.amount),
+        categorie: 'Autres dépenses',
+        compte: t.account?.name || 'Compte bancaire',
+        statut: 'realisee',
+        type: 'bancaire',
+        bridgeId: t.id,
+        bridgeAccountId: t.account_id,
+        isSynced: true
+      }));
+      
+      allTransactions = itemTransactions;
+      console.log(`✅ Méthode 1: ${itemTransactions.length} transactions depuis item`);
+      
+    } catch (itemError) {
+      console.log("⚠️ Méthode 1 échouée:", itemError.response?.data?.errors?.[0]?.message || itemError.message);
+    }
+
+    // Méthode 2 : Si méthode 1 échoue, récupérer via comptes
+    if (allTransactions.length === 0) {
+      console.log("📊 Méthode 2: Récupération via comptes...");
+      
+      const accountsResponse = await axios.get(
+        `${BRIDGE_API_URL}/v3/aggregation/accounts`,
+        { headers: getHeaders(accessToken) }
+      );
+
+      const allAccounts = accountsResponse.data.resources || [];
+      const accounts = allAccounts.filter(a => a.item_id === itemId);
+      
+      console.log(`  → ${accounts.length} comptes pour item ${itemId}`);
+
+      for (const account of accounts) {
+        try {
+          const transactionsResponse = await axios.get(
+            `${BRIDGE_API_URL}/v3/aggregation/accounts/${account.id}/transactions`,
+            { 
+              headers: getHeaders(accessToken),
+              params: { limit: 500 }
+            }
+          );
+          
+          const accountTransactions = (transactionsResponse.data.resources || []).map(t => ({
+            id: `bridge_${t.id}`,
+            date: t.date,
+            description: t.description || t.clean_description || t.bank_description || 'Transaction',
+            montant: parseFloat(t.amount),
+            categorie: 'Autres dépenses',
+            compte: account.name,
+            statut: 'realisee',
+            type: 'bancaire',
+            bridgeId: t.id,
+            bridgeAccountId: account.id,
+            isSynced: true
+          }));
+          
+          allTransactions = [...allTransactions, ...accountTransactions];
+          console.log(`    ✅ ${accountTransactions.length} transactions du compte ${account.name}`);
+          
+        } catch (error) {
+          console.error(`    ❌ Erreur compte ${account.name}:`, error.message);
+        }
       }
     }
 
-    console.log(`🎉 Total: ${allTransactions.length} transactions récupérées`);
+    console.log(`🎉 TOTAL FINAL: ${allTransactions.length} transactions`);
 
     return res.status(200).json({
       success: true,
-      accounts: accounts.map(a => ({
-        id: a.id,
-        name: a.name,
-        balance: a.balance,
-        type: a.type
-      })),
       transactions: allTransactions,
       transactionsCount: allTransactions.length,
       syncDate: new Date().toISOString()
@@ -124,7 +138,7 @@ export default async function handler(req, res) {
     console.error('❌ Sync error:', error.response?.data || error.message);
     
     return res.status(500).json({ 
-      error: 'Erreur lors de la synchronisation',
+      error: 'Erreur synchronisation',
       details: error.response?.data || error.message
     });
   }
