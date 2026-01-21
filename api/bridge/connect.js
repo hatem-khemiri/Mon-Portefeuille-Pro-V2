@@ -76,11 +76,11 @@ export default async function handler(req, res) {
 
     console.log("🔗 Création connect-session...");
     
+    // Version simplifiée qui fonctionnait avant
     const connectResponse = await axios.post(
       `${BRIDGE_API_URL}/v3/aggregation/connect-sessions`,
       {
-        user_email: `user-${userId}@monportfeuille.app`,
-        redirect_url: `https://mon-portefeuille-pro-v2.vercel.app/callback?userId=${userId}`
+        user_email: `user-${userId}@monportfeuille.app`
       },
       { headers: getHeaders(accessToken) }
     );
