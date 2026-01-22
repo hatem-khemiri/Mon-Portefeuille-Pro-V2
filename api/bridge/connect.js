@@ -24,6 +24,12 @@ export default async function handler(req, res) {
   }
 
   try {
+    // DEBUG: Afficher les credentials (masqués partiellement)
+    console.log("🔍 DEBUG Credentials:");
+    console.log("  Client-Id:", process.env.BRIDGE_CLIENT_ID?.substring(0, 20) + "...");
+    console.log("  Client-Secret:", process.env.BRIDGE_CLIENT_SECRET?.substring(0, 20) + "...");
+    console.log("  Bridge-Version:", BRIDGE_VERSION);
+
     if (!process.env.BRIDGE_CLIENT_ID || !process.env.BRIDGE_CLIENT_SECRET) {
       return res.status(500).json({ error: "Configuration serveur manquante" });
     }
@@ -32,6 +38,8 @@ export default async function handler(req, res) {
     if (!userId) {
       return res.status(400).json({ error: 'userId requis' });
     }
+
+    console.log("🔑 Tentative obtention token pour userId:", userId);
 
     let accessToken;
     
@@ -43,9 +51,14 @@ export default async function handler(req, res) {
       );
       
       accessToken = tokenResponse.data.access_token;
+      console.log("✅ Token obtenu");
       
     } catch (tokenError) {
+      console.error("❌ Erreur token:", tokenError.response?.data);
+      
       if (tokenError.response?.status === 404) {
+        console.log("👤 Création utilisateur...");
+        
         await axios.post(
           `${BRIDGE_API_URL}/v3/aggregation/users`,
           { external_user_id: userId },
@@ -61,6 +74,7 @@ export default async function handler(req, res) {
         );
         
         accessToken = retryTokenResponse.data.access_token;
+        console.log("✅ Token obtenu après création");
       } else {
         throw tokenError;
       }
@@ -73,6 +87,8 @@ export default async function handler(req, res) {
       },
       { headers: getHeaders(accessToken) }
     );
+
+    console.log("✅ Connect session créée");
 
     return res.status(200).json({
       connectUrl: connectResponse.data.url,
