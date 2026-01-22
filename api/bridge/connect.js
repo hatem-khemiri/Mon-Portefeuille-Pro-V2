@@ -37,7 +37,6 @@ export default async function handler(req, res) {
 
     let userUuid;
 
-    // Créer ou récupérer l'utilisateur
     try {
       const createResponse = await axios.post(
         `${BRIDGE_API_URL}/v3/aggregation/users`,
@@ -45,11 +44,9 @@ export default async function handler(req, res) {
         { headers: getHeaders() }
       );
       userUuid = createResponse.data.uuid;
-      console.log("✅ Utilisateur créé, UUID:", userUuid);
+      console.log("✅ UUID créé:", userUuid);
     } catch (error) {
       if (error.response?.data?.errors?.[0]?.code === 'users.creation.already_exists_with_external_user_id') {
-        console.log("ℹ️ Utilisateur existe, récupération UUID...");
-        
         const listResponse = await axios.get(
           `${BRIDGE_API_URL}/v3/aggregation/users`,
           { headers: getHeaders() }
@@ -63,31 +60,27 @@ export default async function handler(req, res) {
       }
     }
 
-    if (!userUuid) {
-      throw new Error("Impossible de récupérer l'UUID utilisateur");
-    }
+    console.log("🔗 Création connect-session...");
 
-    console.log("🔗 Création connect-session pour UUID:", userUuid);
-
-    // Créer une session de connexion avec l'UUID utilisateur
+    // Essayer l'endpoint aggregation/connect-sessions avec user_uuid
     const connectResponse = await axios.post(
-      `${BRIDGE_API_URL}/v3/connect/users/${userUuid}/items/add`,
+      `${BRIDGE_API_URL}/v3/aggregation/connect-sessions`,
       {
-        prefill_email: `user-${userId}@monportfeuille.app`
+        user_uuid: userUuid,
+        user_email: `user-${userId}@monportfeuille.app`
       },
       { headers: getHeaders() }
     );
 
-    console.log("✅ Session créée");
+    console.log("✅ Session créée:", connectResponse.data);
 
     return res.status(200).json({
-      connectUrl: connectResponse.data.redirect_url,
+      connectUrl: connectResponse.data.url,
       userId
     });
 
   } catch (error) {
     console.error('❌ Erreur:', error.response?.data || error.message);
-    console.error('❌ Full error:', JSON.stringify(error.response?.data, null, 2));
     
     return res.status(500).json({
       error: 'Erreur connexion bancaire',
