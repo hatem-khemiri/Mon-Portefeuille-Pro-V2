@@ -12,43 +12,61 @@ export default async function handler(req, res) {
     const { userId } = req.body;
     if (!userId) return res.status(400).json({ error: 'userId requis' });
 
-    const headers = {
+    const baseHeaders = {
       'Bridge-Version': BRIDGE_VERSION,
       'Client-Id': process.env.BRIDGE_CLIENT_ID,
       'Client-Secret': process.env.BRIDGE_CLIENT_SECRET,
       'Content-Type': 'application/json'
     };
 
-    // 1. Créer utilisateur
+    // 1. Créer ou récupérer l'utilisateur
     let userUuid;
     try {
-      const r = await axios.post(`${BRIDGE_API_URL}/v3/aggregation/users`, { external_user_id: userId }, { headers });
-      userUuid = r.data.uuid;
+      const createResp = await axios.post(
+        `${BRIDGE_API_URL}/v3/aggregation/users`,
+        { external_user_id: userId },
+        { headers: baseHeaders }
+      );
+      userUuid = createResp.data.uuid;
     } catch (e) {
-      const list = await axios.get(`${BRIDGE_API_URL}/v3/aggregation/users`, { headers });
-      userUuid = list.data.resources.find(u => u.external_user_id === userId)?.uuid;
+      const listResp = await axios.get(
+        `${BRIDGE_API_URL}/v3/aggregation/users`,
+        { headers: baseHeaders }
+      );
+      userUuid = listResp.data.resources.find(u => u.external_user_id === userId)?.uuid;
     }
 
-    // 2. Créer un token temporaire pour cet utilisateur
-    const tempTokenResponse = await axios.post(
-      `${BRIDGE_API_URL}/v3/aggregation/users/${userUuid}/pro-connect/token`,
+    // 2. Créer un temporary access token
+    const tokenResp = await axios.post(
+      `${BRIDGE_API_URL}/v3/aggregation/users/${userUuid}/temporary-access-token`,
       {},
-      { headers }
+      { headers: baseHeaders }
     );
 
-    const tempToken = tempTokenResponse.data.access_token;
+    const accessToken = tokenResp.data.access_token;
 
-    // 3. Créer la session avec le token
-    const connectResponse = await axios.post(
+    // 3. Créer la connect-session
+    const connectResp = await axios.post(
       `${BRIDGE_API_URL}/v3/aggregation/connect-sessions`,
       { user_email: `user-${userId}@monportfeuille.app` },
-      { headers: { ...headers, 'Authorization': `Bearer ${tempToken}` } }
+      { 
+        headers: {
+          ...baseHeaders,
+          'Authorization': `Bearer ${accessToken}`
+        }
+      }
     );
 
-    return res.status(200).json({ connectUrl: connectResponse.data.url, userId });
+    return res.status(200).json({
+      connectUrl: connectResp.data.url,
+      userId
+    });
 
   } catch (error) {
-    console.error('❌', error.response?.data || error.message);
-    return res.status(500).json({ error: 'Erreur', details: error.response?.data });
+    console.error('❌ Erreur:', error.response?.data || error.message);
+    return res.status(500).json({
+      error: 'Erreur connexion',
+      details: error.response?.data || error.message
+    });
   }
 }
