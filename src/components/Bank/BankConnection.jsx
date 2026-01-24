@@ -64,66 +64,49 @@ export const BankConnection = () => {
         return;
       }
 
-      // IMPORTANT: Synchroniser TOUS les items
-      let allTransactions = [];
-      let totalCount = 0;
+      // IMPORTANT: Ne synchroniser que le DERNIER item (le plus récent)
+      const latestItem = items[0]; // Le premier dans la liste est le plus récent
+      
+      console.log(`🔄 Synchronisation UNIQUEMENT du dernier item: ${latestItem.id} - ${latestItem.bank_name}...`);
 
-      for (const item of items) {
-        console.log(`🔄 Synchronisation item ${item.id} - ${item.bank_name}...`);
+      const syncResponse = await fetch('/api/bridge/sync', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ itemId: latestItem.id, userId: currentUser })
+      });
 
-        try {
-          const syncResponse = await fetch('/api/bridge/sync', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ itemId: item.id, userId: currentUser })
-          });
+      if (!syncResponse.ok) throw new Error('Erreur synchronisation');
 
-          if (syncResponse.ok) {
-            const syncData = await syncResponse.json();
-            if (syncData.transactions && syncData.transactions.length > 0) {
-              allTransactions = [...allTransactions, ...syncData.transactions];
-              totalCount += syncData.transactions.length;
-              console.log(`  ✅ ${syncData.transactions.length} transactions de ${item.bank_name}`);
-            }
-          }
-        } catch (error) {
-          console.error(`❌ Erreur item ${item.id}:`, error);
-        }
-      }
+      const syncData = await syncResponse.json();
+      console.log('✅ Données reçues:', syncData);
 
-      console.log(`🎉 Total récupéré: ${totalCount} transactions de ${items.length} items`);
-
-      if (allTransactions.length > 0) {
-        // Sauvegarder la première connexion trouvée
-        const firstItem = items[0];
+      if (syncData.transactions && syncData.transactions.length > 0) {
         const connection = {
-          itemId: firstItem.id,
+          itemId: latestItem.id,
           userId: currentUser,
-          bankName: firstItem.bank_name,
-          itemsCount: items.length,
+          bankName: latestItem.bank_name,
           connectedAt: new Date().toISOString()
         };
         setBankConnection(connection);
         localStorage.setItem(`bank_connection_${currentUser}`, JSON.stringify(connection));
 
-        // Fusionner avec les transactions existantes
         const existing = transactions || [];
         const bridgeIds = new Set(existing.filter(t => t.bridgeId).map(t => t.bridgeId));
         
-        const newTrans = allTransactions.filter(t => !bridgeIds.has(t.bridgeId));
+        const newTrans = syncData.transactions.filter(t => !bridgeIds.has(t.bridgeId));
 
         if (newTrans.length > 0) {
           const updated = [...existing, ...newTrans];
           setTransactions(updated);
           setLastSync(new Date().toISOString());
           
-          console.log(`✅ ${newTrans.length} nouvelles transactions ajoutées au contexte`);
-          alert(`✅ ${newTrans.length} transaction(s) ajoutée(s) depuis ${items.length} connexion(s) bancaire(s) !\n\nAllez dans l'onglet "Transactions" pour les voir.`);
+          console.log(`✅ ${newTrans.length} nouvelles transactions ajoutées`);
+          alert(`✅ ${newTrans.length} transaction(s) synchronisée(s) de BoursoBank !\n\nAllez dans "Transactions" pour les voir.`);
         } else {
-          alert(`ℹ️ ${totalCount} transactions trouvées, mais toutes déjà synchronisées`);
+          alert(`ℹ️ ${syncData.transactions.length} transactions trouvées, toutes déjà synchronisées`);
         }
       } else {
-        alert(`ℹ️ Aucune transaction trouvée dans vos ${items.length} connexion(s) bancaire(s)`);
+        alert('ℹ️ Aucune transaction trouvée');
       }
 
     } catch (error) {
@@ -160,7 +143,7 @@ export const BankConnection = () => {
       {bankConnection && (
         <div className="bg-green-50 border-2 border-green-200 rounded-xl p-4 mb-4">
           <p className="text-sm text-green-800 mb-2">
-            ✅ {bankConnection.itemsCount || 1} connexion(s) bancaire(s)
+            ✅ {bankConnection.bankName || 'BoursoBank'} connectée
           </p>
           {lastSync && (
             <p className="text-xs text-green-700">
@@ -175,7 +158,7 @@ export const BankConnection = () => {
           onClick={handleConnect}
           className="w-full py-3 bg-gradient-to-r from-blue-500 to-purple-600 text-white rounded-xl font-medium hover:shadow-lg transition-all"
         >
-          🏦 {bankConnection ? 'Ajouter une banque' : 'Connecter ma banque'}
+          🏦 {bankConnection ? 'Reconnecter' : 'Connecter ma banque'}
         </button>
 
         <button
@@ -184,7 +167,7 @@ export const BankConnection = () => {
           className="w-full py-3 bg-green-500 text-white rounded-xl font-medium hover:bg-green-600 transition-all flex items-center justify-center gap-2 disabled:opacity-50"
         >
           <RefreshCw size={20} className={isSyncing ? 'animate-spin' : ''} />
-          {isSyncing ? 'Récupération...' : '📥 Récupérer TOUTES mes transactions'}
+          {isSyncing ? 'Récupération...' : '📥 Récupérer mes transactions'}
         </button>
 
         {bankConnection && (
@@ -195,7 +178,7 @@ export const BankConnection = () => {
                 className="w-full py-3 bg-red-100 text-red-600 rounded-xl font-medium hover:bg-red-200 transition-all flex items-center justify-center gap-2"
               >
                 <Unlink size={20} />
-                Déconnecter toutes mes banques
+                Déconnecter ma banque
               </button>
             ) : (
               <div className="bg-red-50 border-2 border-red-300 rounded-xl p-4">
@@ -222,7 +205,7 @@ export const BankConnection = () => {
 
       <div className="mt-4 bg-blue-50 border border-blue-200 rounded-xl p-3">
         <p className="text-xs text-blue-800">
-          💡 Le bouton récupère les transactions de <strong>toutes</strong> vos connexions bancaires ({bankConnection?.itemsCount || '?'} détectée(s))
+          💡 Seule la connexion la plus récente sera synchronisée
         </p>
       </div>
     </div>
