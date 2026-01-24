@@ -62,18 +62,29 @@ export default async function handler(req, res) {
       }
     );
 
-    // Calculer le décalage : différence entre aujourd'hui et la date la plus récente
-    const today = new Date();
     const transactions = transactionsResponse.data.resources || [];
     
-    const mostRecentDate = transactions.length > 0 
-      ? new Date(Math.max(...transactions.map(t => new Date(t.date))))
-      : today;
+    if (transactions.length === 0) {
+      return res.status(200).json({
+        success: true,
+        transactions: [],
+        transactionsCount: 0,
+        syncDate: new Date().toISOString()
+      });
+    }
+
+    // Trouver la transaction la PLUS ANCIENNE
+    const oldestDate = new Date(Math.min(...transactions.map(t => new Date(t.date))));
     
-    const daysDiff = Math.ceil((today - mostRecentDate) / (1000 * 60 * 60 * 24));
+    // Calculer le décalage pour que la plus ancienne commence AUJOURD'HUI
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    
+    const daysDiff = Math.ceil((today - oldestDate) / (1000 * 60 * 60 * 24));
+
+    console.log(`📅 Décalage de ${daysDiff} jours (ancienne: ${oldestDate.toISOString().split('T')[0]} → nouvelle: ${today.toISOString().split('T')[0]})`);
 
     const allTransactions = transactions.map(t => {
-      // Décaler la date dans le futur
       const originalDate = new Date(t.date);
       const futureDate = new Date(originalDate);
       futureDate.setDate(futureDate.getDate() + daysDiff);
@@ -85,7 +96,7 @@ export default async function handler(req, res) {
         montant: parseFloat(t.amount),
         categorie: 'Autres dépenses',
         compte: 'BoursoBank',
-        statut: 'avenir',  // ← Statut à venir au lieu de réalisée
+        statut: 'avenir',
         type: 'bancaire',
         bridgeId: t.id,
         bridgeAccountId: t.account_id,
@@ -93,7 +104,7 @@ export default async function handler(req, res) {
       };
     });
 
-    console.log(`✅ ${allTransactions.length} transactions futures récupérées (décalées de ${daysDiff} jours)`);
+    console.log(`✅ ${allTransactions.length} transactions (du ${allTransactions[allTransactions.length - 1].date} au ${allTransactions[0].date})`);
 
     return res.status(200).json({
       success: true,
