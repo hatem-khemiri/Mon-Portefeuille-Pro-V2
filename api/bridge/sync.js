@@ -26,7 +26,6 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: 'itemId et userId requis' });
     }
 
-    // Obtenir le token
     let accessToken;
     try {
       const tokenResponse = await axios.post(
@@ -53,9 +52,8 @@ export default async function handler(req, res) {
       }
     }
 
-    console.log("📊 Récupération TOUTES les transactions...");
+    console.log("📊 Récupération transactions...");
 
-    // Récupérer TOUTES les transactions de l'utilisateur
     const transactionsResponse = await axios.get(
       `${BRIDGE_API_URL}/v3/aggregation/transactions`,
       { 
@@ -64,21 +62,38 @@ export default async function handler(req, res) {
       }
     );
 
-    const allTransactions = (transactionsResponse.data.resources || []).map(t => ({
-      id: `bridge_${t.id}`,
-      date: t.date,
-      description: t.clean_description || t.provider_description || 'Transaction',
-      montant: parseFloat(t.amount),
-      categorie: 'Autres dépenses',
-      compte: 'Compte bancaire',
-      statut: 'realisee',
-      type: 'bancaire',
-      bridgeId: t.id,
-      bridgeAccountId: t.account_id,
-      isSynced: true
-    }));
+    // Calculer le décalage : différence entre aujourd'hui et la date la plus récente
+    const today = new Date();
+    const transactions = transactionsResponse.data.resources || [];
+    
+    const mostRecentDate = transactions.length > 0 
+      ? new Date(Math.max(...transactions.map(t => new Date(t.date))))
+      : today;
+    
+    const daysDiff = Math.ceil((today - mostRecentDate) / (1000 * 60 * 60 * 24));
 
-    console.log(`✅ ${allTransactions.length} transactions récupérées`);
+    const allTransactions = transactions.map(t => {
+      // Décaler la date dans le futur
+      const originalDate = new Date(t.date);
+      const futureDate = new Date(originalDate);
+      futureDate.setDate(futureDate.getDate() + daysDiff);
+
+      return {
+        id: `bridge_${t.id}`,
+        date: futureDate.toISOString().split('T')[0],
+        description: t.clean_description || t.provider_description || 'Transaction',
+        montant: parseFloat(t.amount),
+        categorie: 'Autres dépenses',
+        compte: 'BoursoBank',
+        statut: 'avenir',  // ← Statut à venir au lieu de réalisée
+        type: 'bancaire',
+        bridgeId: t.id,
+        bridgeAccountId: t.account_id,
+        isSynced: true
+      };
+    });
+
+    console.log(`✅ ${allTransactions.length} transactions futures récupérées (décalées de ${daysDiff} jours)`);
 
     return res.status(200).json({
       success: true,
