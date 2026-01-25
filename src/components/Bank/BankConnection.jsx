@@ -41,6 +41,12 @@ export const BankConnection = () => {
   };
 
   const handleFetchTransactions = async () => {
+    // ✅ CORRECTION CRITIQUE : Vérifier la connexion locale AVANT de sync
+    if (!bankConnection) {
+      alert('❌ Aucune banque connectée.\n\nVeuillez d\'abord cliquer sur "Connecter ma banque".');
+      return;
+    }
+
     setIsSyncing(true);
     setSyncError(null);
 
@@ -59,12 +65,24 @@ export const BankConnection = () => {
       console.log(`✅ ${items.length} items trouvés`);
 
       if (!items || items.length === 0) {
+        // ✅ Si Bridge n'a pas d'items, nettoyer aussi le localStorage
+        setBankConnection(null);
+        localStorage.removeItem(`bank_connection_${currentUser}`);
         alert('❌ Aucune banque connectée. Cliquez d\'abord sur "Connecter ma banque".');
         setIsSyncing(false);
         return;
       }
 
       const latestItem = items[0];
+      
+      // ✅ Vérifier que l'item correspond à notre connexion locale
+      if (bankConnection.itemId && bankConnection.itemId !== latestItem.id) {
+        alert('⚠️ La connexion bancaire a changé. Veuillez vous reconnecter.');
+        setBankConnection(null);
+        localStorage.removeItem(`bank_connection_${currentUser}`);
+        setIsSyncing(false);
+        return;
+      }
       
       console.log(`🔄 Sync item: ${latestItem.id}...`);
 
@@ -116,14 +134,17 @@ export const BankConnection = () => {
   };
 
   const handleDisconnect = async () => {
+    // Supprimer les transactions synchronisées
     const updated = (transactions || []).filter(t => !t.isSynced);
     setTransactions(updated);
     
+    // Nettoyer la connexion locale
     setBankConnection(null);
     setLastSync(null);
     localStorage.removeItem(`bank_connection_${currentUser}`);
     setShowDisconnectConfirm(false);
-    alert('✅ Banque déconnectée');
+    
+    alert('✅ Banque déconnectée et transactions synchronisées supprimées');
   };
 
   return (
@@ -160,12 +181,18 @@ export const BankConnection = () => {
 
         <button
           onClick={handleFetchTransactions}
-          disabled={isSyncing}
-          className="w-full py-3 bg-green-500 text-white rounded-xl font-medium hover:bg-green-600 transition-all flex items-center justify-center gap-2 disabled:opacity-50"
+          disabled={isSyncing || !bankConnection}
+          className="w-full py-3 bg-green-500 text-white rounded-xl font-medium hover:bg-green-600 transition-all flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
         >
           <RefreshCw size={20} className={isSyncing ? 'animate-spin' : ''} />
           {isSyncing ? 'Récupération...' : '📥 Récupérer mes transactions'}
         </button>
+
+        {!bankConnection && (
+          <p className="text-sm text-gray-600 text-center italic">
+            ⚠️ Connectez d'abord votre banque pour synchroniser vos transactions
+          </p>
+        )}
 
         {bankConnection && (
           <>
@@ -179,7 +206,12 @@ export const BankConnection = () => {
               </button>
             ) : (
               <div className="bg-red-50 border-2 border-red-300 rounded-xl p-4">
-                <p className="text-sm font-bold text-red-800 mb-3">⚠️ Confirmer ?</p>
+                <p className="text-sm font-bold text-red-800 mb-3">
+                  ⚠️ Confirmer la déconnexion ?
+                </p>
+                <p className="text-xs text-red-700 mb-3">
+                  Cela supprimera toutes les transactions synchronisées.
+                </p>
                 <div className="grid grid-cols-2 gap-3">
                   <button
                     onClick={() => setShowDisconnectConfirm(false)}
