@@ -18,6 +18,86 @@ function getHeaders(accessToken = null) {
   return headers;
 }
 
+// ✅ NOUVELLE FONCTION : Catégorisation intelligente
+function categorizeTransaction(transaction) {
+  const amount = parseFloat(transaction.amount);
+  const description = (transaction.clean_description || transaction.provider_description || '').toLowerCase();
+  
+  // REVENUS (montant positif)
+  if (amount > 0) {
+    if (description.includes('vir') || description.includes('virement') || description.includes('salaire')) {
+      return 'Salaire';
+    }
+    if (description.includes('remboursement') || description.includes('remb')) {
+      return 'Remboursement';
+    }
+    return 'Autres revenus';
+  }
+  
+  // DÉPENSES (montant négatif)
+  if (amount < 0) {
+    // Alimentation
+    if (description.includes('carrefour') || description.includes('auchan') || 
+        description.includes('leclerc') || description.includes('lidl') ||
+        description.includes('marjane') || description.includes('supermarché') ||
+        description.includes('hypermarché') || description.includes('monoprix')) {
+      return 'Courses';
+    }
+    
+    if (description.includes('mcdo') || description.includes('mcdonald') ||
+        description.includes('kfc') || description.includes('burger') ||
+        description.includes('restaurant') || description.includes('cafe')) {
+      return 'Restaurants';
+    }
+    
+    // Transport
+    if (description.includes('essence') || description.includes('total') ||
+        description.includes('shell') || description.includes('carburant') ||
+        description.includes('station') || description.includes('gas')) {
+      return 'Transport';
+    }
+    
+    // Loisirs
+    if (description.includes('cinema') || description.includes('spotify') ||
+        description.includes('netflix') || description.includes('youtube') ||
+        description.includes('jeux') || description.includes('game')) {
+      return 'Loisirs';
+    }
+    
+    // Santé
+    if (description.includes('pharmacie') || description.includes('medecin') ||
+        description.includes('docteur') || description.includes('hopital')) {
+      return 'Santé';
+    }
+    
+    // Logement
+    if (description.includes('loyer') || description.includes('edf') ||
+        description.includes('eau') || description.includes('gaz') ||
+        description.includes('electricite')) {
+      return 'Logement';
+    }
+    
+    // Abonnements
+    if (description.includes('prlv') || description.includes('prelevement') ||
+        description.includes('abonnement') || description.includes('bouygues') ||
+        description.includes('orange') || description.includes('sfr') ||
+        description.includes('free') || description.includes('macif') ||
+        description.includes('matmut') || description.includes('assurance')) {
+      return 'Abonnements';
+    }
+    
+    // Retraits
+    if (description.includes('retrait') || description.includes('dab') ||
+        description.includes('atm') || description.includes('especes')) {
+      return 'Retraits';
+    }
+    
+    return 'Autres dépenses';
+  }
+  
+  return 'Autres dépenses';
+}
+
 export default async function handler(req, res) {
   try {
     const { itemId, userId } = req.body;
@@ -94,7 +174,7 @@ export default async function handler(req, res) {
         date: futureDate.toISOString().split('T')[0],
         description: t.clean_description || t.provider_description || 'Transaction',
         montant: parseFloat(t.amount),
-        categorie: 'Autres dépenses',
+        categorie: categorizeTransaction(t), // ✅ CORRECTION ICI
         compte: 'BoursoBank',
         statut: 'avenir',
         type: 'bancaire',

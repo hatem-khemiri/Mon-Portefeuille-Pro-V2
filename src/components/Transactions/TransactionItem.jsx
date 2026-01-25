@@ -122,7 +122,7 @@ export const TransactionItem = ({ transaction, onDelete }) => {
       <td className="px-6 py-4 text-sm text-center">
         {isEditing ? (
           <select
-            defaultValue={transaction.statut}
+            value={isAVenir ? 'a_venir' : 'realisee'}
             onChange={(e) => handleUpdate('statut', e.target.value)}
             className="px-2 py-1 border-2 border-blue-500 rounded-lg text-sm"
           >
