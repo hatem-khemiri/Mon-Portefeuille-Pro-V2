@@ -42,7 +42,7 @@ export const DashboardContainer = () => {
       .filter(t => 
         t.montant < 0 && 
         t.type !== 'transfert' &&
-        t.statut === 'realisee'
+        (t.statut === 'realisee' || t.statut === 'avenir')  // ← CORRECTION ICI
       )
       .forEach(t => {
         grouped[t.categorie] = (grouped[t.categorie] || 0) + Math.abs(t.montant);
