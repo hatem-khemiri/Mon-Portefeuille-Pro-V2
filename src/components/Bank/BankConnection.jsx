@@ -31,9 +31,46 @@ export const BankConnection = () => {
       if (!response.ok) throw new Error('Erreur connexion');
 
       const { connectUrl } = await response.json();
-      window.open(connectUrl, 'Bridge', 'width=500,height=700');
+      const popup = window.open(connectUrl, 'Bridge', 'width=500,height=700');
       
-      alert('📱 Connectez votre banque, puis revenez ici et cliquez sur "Récupérer mes transactions"');
+      // ✅ Surveiller la fermeture de la popup
+      const checkPopup = setInterval(async () => {
+        if (popup.closed) {
+          clearInterval(checkPopup);
+          
+          // Vérifier si la connexion a réussi
+          try {
+            const itemsResponse = await fetch('/api/bridge/items', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ userId: currentUser })
+            });
+
+            if (itemsResponse.ok) {
+              const { items } = await itemsResponse.json();
+              
+              if (items && items.length > 0) {
+                const latestItem = items[0];
+                const connection = {
+                  itemId: latestItem.id,
+                  userId: currentUser,
+                  bankName: latestItem.bank_name,
+                  connectedAt: new Date().toISOString()
+                };
+                
+                setBankConnection(connection);
+                localStorage.setItem(`bank_connection_${currentUser}`, JSON.stringify(connection));
+                
+                alert('✅ Banque connectée avec succès !\n\nVous pouvez maintenant cliquer sur "Récupérer mes transactions".');
+              } else {
+                alert('⚠️ Connexion non finalisée. Réessayez en suivant toutes les étapes.');
+              }
+            }
+          } catch (err) {
+            console.error('Erreur vérification connexion:', err);
+          }
+        }
+      }, 1000);
 
     } catch (error) {
       alert(`❌ Erreur : ${error.message}`);
