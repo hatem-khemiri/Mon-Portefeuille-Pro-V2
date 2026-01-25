@@ -33,7 +33,7 @@ export const BankConnection = () => {
       const { connectUrl } = await response.json();
       window.open(connectUrl, 'Bridge', 'width=500,height=700');
       
-      alert('📱 Connectez votre banque dans la fenêtre, puis revenez ici et cliquez sur "Récupérer mes transactions"');
+      alert('📱 Connectez votre banque, puis revenez ici et cliquez sur "Récupérer mes transactions"');
 
     } catch (error) {
       alert(`❌ Erreur : ${error.message}`);
@@ -45,7 +45,7 @@ export const BankConnection = () => {
     setSyncError(null);
 
     try {
-      console.log('🔍 Récupération des items Bridge...');
+      console.log('🔍 Récupération items...');
       
       const itemsResponse = await fetch('/api/bridge/items', {
         method: 'POST',
@@ -59,15 +59,14 @@ export const BankConnection = () => {
       console.log(`✅ ${items.length} items trouvés`);
 
       if (!items || items.length === 0) {
-        alert('❌ Aucune banque connectée');
+        alert('❌ Aucune banque connectée. Cliquez d\'abord sur "Connecter ma banque".');
         setIsSyncing(false);
         return;
       }
 
-      // IMPORTANT: Ne synchroniser que le DERNIER item (le plus récent)
-      const latestItem = items[0]; // Le premier dans la liste est le plus récent
+      const latestItem = items[0];
       
-      console.log(`🔄 Synchronisation UNIQUEMENT du dernier item: ${latestItem.id} - ${latestItem.bank_name}...`);
+      console.log(`🔄 Sync item: ${latestItem.id}...`);
 
       const syncResponse = await fetch('/api/bridge/sync', {
         method: 'POST',
@@ -78,7 +77,6 @@ export const BankConnection = () => {
       if (!syncResponse.ok) throw new Error('Erreur synchronisation');
 
       const syncData = await syncResponse.json();
-      console.log('✅ Données reçues:', syncData);
 
       if (syncData.transactions && syncData.transactions.length > 0) {
         const connection = {
@@ -100,8 +98,7 @@ export const BankConnection = () => {
           setTransactions(updated);
           setLastSync(new Date().toISOString());
           
-          console.log(`✅ ${newTrans.length} nouvelles transactions ajoutées`);
-          alert(`✅ ${newTrans.length} transaction(s) synchronisée(s) de BoursoBank !\n\nAllez dans "Transactions" pour les voir.`);
+          alert(`✅ ${newTrans.length} transaction(s) synchronisée(s) !\n\nAllez dans "Transactions" pour les voir.`);
         } else {
           alert(`ℹ️ ${syncData.transactions.length} transactions trouvées, toutes déjà synchronisées`);
         }
@@ -201,12 +198,6 @@ export const BankConnection = () => {
             )}
           </>
         )}
-      </div>
-
-      <div className="mt-4 bg-blue-50 border border-blue-200 rounded-xl p-3">
-        <p className="text-xs text-blue-800">
-          💡 Seule la connexion la plus récente sera synchronisée
-        </p>
       </div>
     </div>
   );
