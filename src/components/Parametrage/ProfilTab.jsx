@@ -9,12 +9,17 @@ export const ProfilTab = ({ onExport, onLogout }) => {
   const [showDeleteAccountConfirm, setShowDeleteAccountConfirm] = useState(false);
 
   const handleReset = () => {
+    // Supprimer toutes les données financières
     setComptes([]);
     setTransactions([]);
     setChargesFixes([]);
     setEpargnes([]);
     setDettes([]);
     setMemos([]);
+    
+    // Supprimer la connexion bancaire
+    localStorage.removeItem(`bank_connection_${currentUser}`);
+    
     setShowResetConfirm(false);
     
     // Redémarrer l'onboarding
@@ -22,6 +27,9 @@ export const ProfilTab = ({ onExport, onLogout }) => {
   };
 
   const handleDeleteAccount = () => {
+    // Supprimer la connexion bancaire aussi
+    localStorage.removeItem(`bank_connection_${currentUser}`);
+    
     deleteUserAccount(currentUser);
     setShowDeleteAccountConfirm(false);
     onLogout();
@@ -62,7 +70,7 @@ export const ProfilTab = ({ onExport, onLogout }) => {
       <div className="bg-orange-50 border-2 border-orange-200 rounded-xl p-6">
         <h4 className="font-bold text-orange-800 mb-3">🔄 Réinitialisation</h4>
         <p className="text-sm text-orange-700 mb-4">
-          Supprimez TOUTES vos données financières et recommencez l'application depuis zéro. Votre compte utilisateur sera conservé.
+          Supprimez TOUTES vos données financières ET votre connexion bancaire. Votre compte utilisateur sera conservé.
         </p>
         {!showResetConfirm ? (
           <button
@@ -76,7 +84,12 @@ export const ProfilTab = ({ onExport, onLogout }) => {
           <div className="space-y-3">
             <div className="bg-red-100 border-2 border-red-300 rounded-xl p-4">
               <p className="text-sm font-bold text-red-800 mb-2">⚠️ ÊTES-VOUS SÛR ?</p>
-              <p className="text-xs text-red-700">Cette action supprimera TOUTES vos données de manière IRRÉVERSIBLE.</p>
+              <p className="text-xs text-red-700 mb-2">Cette action supprimera :</p>
+              <ul className="text-xs text-red-700 list-disc list-inside">
+                <li>Toutes vos données financières</li>
+                <li>Votre connexion bancaire</li>
+              </ul>
+              <p className="text-xs text-red-700 mt-2">Cette action est IRRÉVERSIBLE.</p>
             </div>
             <div className="grid grid-cols-2 gap-3">
               <button
@@ -120,6 +133,7 @@ export const ProfilTab = ({ onExport, onLogout }) => {
                 <li>Votre compte "{currentUser}"</li>
                 <li>Tous vos identifiants</li>
                 <li>TOUTES vos données financières</li>
+                <li>Votre connexion bancaire</li>
               </ul>
               <p className="text-xs font-bold text-red-900 mt-3">
                 Cette action est IRRÉVERSIBLE et vous ne pourrez JAMAIS récupérer ce compte.
@@ -148,8 +162,8 @@ export const ProfilTab = ({ onExport, onLogout }) => {
         <div className="text-sm text-gray-700 space-y-2">
           <p><strong>Différence entre Réinitialiser et Supprimer :</strong></p>
           <ul className="list-disc list-inside space-y-1 ml-2">
-            <li><strong>Réinitialiser</strong> : Efface vos données mais conserve votre compte</li>
-            <li><strong>Supprimer le compte</strong> : Efface TOUT définitivement (compte + données)</li>
+            <li><strong>Réinitialiser</strong> : Efface vos données + connexion bancaire, conserve votre compte</li>
+            <li><strong>Supprimer le compte</strong> : Efface TOUT définitivement (compte + données + banque)</li>
           </ul>
         </div>
       </div>
