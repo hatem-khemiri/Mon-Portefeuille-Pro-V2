@@ -12,8 +12,12 @@ export const TransactionItem = ({ transaction, onDelete }) => {
     updateTransaction(transaction.id, { [field]: value });
   };
 
+  // ✅ CORRECTION : Vérifier les deux formats de statut
+  const isAVenir = transaction.statut === 'a_venir' || transaction.statut === 'avenir';
+  const isRealisee = transaction.statut === 'realisee';
+
   return (
-    <tr className={`hover:bg-blue-50/50 transition-colors ${transaction.statut === 'a_venir' ? 'opacity-60' : ''}`}>
+    <tr className={`hover:bg-blue-50/50 transition-colors ${isAVenir ? 'opacity-60' : ''}`}>
       <td className="px-6 py-4 text-sm font-medium">
         {isEditing ? (
           <input
@@ -126,8 +130,8 @@ export const TransactionItem = ({ transaction, onDelete }) => {
             <option value="a_venir">À venir</option>
           </select>
         ) : (
-          <span className={`px-3 py-1 rounded-full text-xs font-medium ${transaction.statut === 'realisee' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'}`}>
-            {transaction.statut === 'realisee' ? '✓ Réalisée' : '⏱ À venir'}
+          <span className={`px-3 py-1 rounded-full text-xs font-medium ${isRealisee ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'}`}>
+            {isRealisee ? '✓ Réalisée' : '⏱ À venir'}
           </span>
         )}
       </td>

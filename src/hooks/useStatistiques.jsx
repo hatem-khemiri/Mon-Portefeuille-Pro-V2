@@ -60,9 +60,12 @@ export const useStatistiques = (transactions, comptes, vueTableauBord, compteSel
       return dateT >= dateDebut && dateT <= dateFin;
     });
     
+    // ✅ CORRECTION CRITIQUE : Accepter 'avenir' ET 'a_venir'
     const transactionsAVenir = transactions.filter(t => {
       const dateT = new Date(t.date);
-      const dansLaPeriode = t.statut === 'a_venir' && dateT >= dateDebut && dateT <= dateFinPrevue;
+      const dansLaPeriode = (t.statut === 'a_venir' || t.statut === 'avenir') && 
+                            dateT >= dateDebut && 
+                            dateT <= dateFinPrevue;
       
       return dansLaPeriode && (
         t.compte === compteActuel.nom || 

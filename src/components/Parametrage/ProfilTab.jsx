@@ -17,8 +17,25 @@ export const ProfilTab = ({ onExport, onLogout }) => {
     setDettes([]);
     setMemos([]);
     
-    // Supprimer la connexion bancaire
-    localStorage.removeItem(`bank_connection_${currentUser}`);
+    // ✅ CORRECTION : Supprimer TOUTES les clés liées à la banque
+    const keysToRemove = [
+      `bank_connection_${currentUser}`,
+      `bank_token_${currentUser}`,
+      `bank_accounts_${currentUser}`,
+      `bank_sync_date_${currentUser}`,
+      `last_sync_${currentUser}`
+    ];
+    
+    keysToRemove.forEach(key => {
+      localStorage.removeItem(key);
+    });
+    
+    // Nettoyer également toutes les clés qui commencent par "bank_" pour cet utilisateur
+    Object.keys(localStorage).forEach(key => {
+      if (key.includes(currentUser) && key.startsWith('bank_')) {
+        localStorage.removeItem(key);
+      }
+    });
     
     setShowResetConfirm(false);
     
@@ -27,8 +44,25 @@ export const ProfilTab = ({ onExport, onLogout }) => {
   };
 
   const handleDeleteAccount = () => {
-    // Supprimer la connexion bancaire aussi
-    localStorage.removeItem(`bank_connection_${currentUser}`);
+    // ✅ CORRECTION : Supprimer toutes les clés bancaires avant de supprimer le compte
+    const keysToRemove = [
+      `bank_connection_${currentUser}`,
+      `bank_token_${currentUser}`,
+      `bank_accounts_${currentUser}`,
+      `bank_sync_date_${currentUser}`,
+      `last_sync_${currentUser}`
+    ];
+    
+    keysToRemove.forEach(key => {
+      localStorage.removeItem(key);
+    });
+    
+    // Nettoyer toutes les clés bancaires
+    Object.keys(localStorage).forEach(key => {
+      if (key.includes(currentUser) && key.startsWith('bank_')) {
+        localStorage.removeItem(key);
+      }
+    });
     
     deleteUserAccount(currentUser);
     setShowDeleteAccountConfirm(false);
@@ -87,7 +121,7 @@ export const ProfilTab = ({ onExport, onLogout }) => {
               <p className="text-xs text-red-700 mb-2">Cette action supprimera :</p>
               <ul className="text-xs text-red-700 list-disc list-inside">
                 <li>Toutes vos données financières</li>
-                <li>Votre connexion bancaire</li>
+                <li>Votre connexion bancaire (token + comptes)</li>
               </ul>
               <p className="text-xs text-red-700 mt-2">Cette action est IRRÉVERSIBLE.</p>
             </div>
