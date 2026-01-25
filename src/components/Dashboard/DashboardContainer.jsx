@@ -36,13 +36,29 @@ export const DashboardContainer = () => {
     [dettes]
   );
   
+  // Dépenses incluant "à venir" (pour vue prospective)
   const depensesParCategorie = useMemo(() => {
     const grouped = {};
     transactions
       .filter(t => 
         t.montant < 0 && 
         t.type !== 'transfert' &&
-        (t.statut === 'realisee' || t.statut === 'avenir')  // ← CORRECTION ICI
+        (t.statut === 'realisee' || t.statut === 'avenir')
+      )
+      .forEach(t => {
+        grouped[t.categorie] = (grouped[t.categorie] || 0) + Math.abs(t.montant);
+      });
+    return Object.entries(grouped).map(([name, value]) => ({ name, value }));
+  }, [transactions]);
+
+  // ✅ AJOUT : Dépenses réalisées uniquement (pour vue historique)
+  const depensesRealisees = useMemo(() => {
+    const grouped = {};
+    transactions
+      .filter(t => 
+        t.montant < 0 && 
+        t.type !== 'transfert' &&
+        t.statut === 'realisee'
       )
       .forEach(t => {
         grouped[t.categorie] = (grouped[t.categorie] || 0) + Math.abs(t.montant);
@@ -184,7 +200,11 @@ export const DashboardContainer = () => {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <DepensesChart depensesParCategorie={depensesParCategorie} />
+        {/* ✅ MODIFICATION : Passage des deux props */}
+        <DepensesChart 
+          depensesParCategorie={depensesParCategorie}
+          depensesRealisees={depensesRealisees}
+        />
         <AnalyseDetaillée stats={stats} budgetPrevisionnel={budgetPrevisionnel} />
       </div>
     </div>
