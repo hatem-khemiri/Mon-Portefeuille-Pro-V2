@@ -17,22 +17,24 @@ export const ProfilTab = ({ onExport, onLogout }) => {
     setDettes([]);
     setMemos([]);
     
-    // ✅ CORRECTION : Supprimer TOUTES les clés liées à la banque
+    // ✅ CORRECTION COMPLÈTE : Supprimer TOUTES les données bancaires ET financières
+    // La clé user_data_H contient les transactions synchronisées !
     const keysToRemove = [
       `bank_connection_${currentUser}`,
       `bank_token_${currentUser}`,
       `bank_accounts_${currentUser}`,
       `bank_sync_date_${currentUser}`,
-      `last_sync_${currentUser}`
+      `last_sync_${currentUser}`,
+      `user_data_${currentUser}` // ← CRITIQUE : Supprime les transactions sync
     ];
     
     keysToRemove.forEach(key => {
       localStorage.removeItem(key);
     });
     
-    // Nettoyer également toutes les clés qui commencent par "bank_" pour cet utilisateur
+    // Nettoyer toutes les autres clés bancaires potentielles
     Object.keys(localStorage).forEach(key => {
-      if (key.includes(currentUser) && key.startsWith('bank_')) {
+      if (key.includes(currentUser) && (key.startsWith('bank_') || key.startsWith('bridge_'))) {
         localStorage.removeItem(key);
       }
     });
@@ -44,13 +46,16 @@ export const ProfilTab = ({ onExport, onLogout }) => {
   };
 
   const handleDeleteAccount = () => {
-    // ✅ CORRECTION : Supprimer toutes les clés bancaires avant de supprimer le compte
+    // ✅ Supprimer TOUTES les clés (bancaires + données utilisateur)
     const keysToRemove = [
       `bank_connection_${currentUser}`,
       `bank_token_${currentUser}`,
       `bank_accounts_${currentUser}`,
       `bank_sync_date_${currentUser}`,
-      `last_sync_${currentUser}`
+      `last_sync_${currentUser}`,
+      `user_data_${currentUser}`,
+      `security_${currentUser}`,
+      `user_${currentUser}`
     ];
     
     keysToRemove.forEach(key => {
@@ -59,7 +64,7 @@ export const ProfilTab = ({ onExport, onLogout }) => {
     
     // Nettoyer toutes les clés bancaires
     Object.keys(localStorage).forEach(key => {
-      if (key.includes(currentUser) && key.startsWith('bank_')) {
+      if (key.includes(currentUser) && (key.startsWith('bank_') || key.startsWith('bridge_'))) {
         localStorage.removeItem(key);
       }
     });
@@ -104,7 +109,7 @@ export const ProfilTab = ({ onExport, onLogout }) => {
       <div className="bg-orange-50 border-2 border-orange-200 rounded-xl p-6">
         <h4 className="font-bold text-orange-800 mb-3">🔄 Réinitialisation</h4>
         <p className="text-sm text-orange-700 mb-4">
-          Supprimez TOUTES vos données financières ET votre connexion bancaire. Votre compte utilisateur sera conservé.
+          Supprimez TOUTES vos données financières (comptes, transactions, épargnes) ET votre connexion bancaire. Votre compte utilisateur sera conservé.
         </p>
         {!showResetConfirm ? (
           <button
@@ -120,8 +125,8 @@ export const ProfilTab = ({ onExport, onLogout }) => {
               <p className="text-sm font-bold text-red-800 mb-2">⚠️ ÊTES-VOUS SÛR ?</p>
               <p className="text-xs text-red-700 mb-2">Cette action supprimera :</p>
               <ul className="text-xs text-red-700 list-disc list-inside">
-                <li>Toutes vos données financières</li>
-                <li>Votre connexion bancaire (token + comptes)</li>
+                <li>Toutes vos données financières (comptes, transactions, épargnes, dettes)</li>
+                <li>Votre connexion bancaire (token + transactions synchronisées)</li>
               </ul>
               <p className="text-xs text-red-700 mt-2">Cette action est IRRÉVERSIBLE.</p>
             </div>
@@ -196,7 +201,7 @@ export const ProfilTab = ({ onExport, onLogout }) => {
         <div className="text-sm text-gray-700 space-y-2">
           <p><strong>Différence entre Réinitialiser et Supprimer :</strong></p>
           <ul className="list-disc list-inside space-y-1 ml-2">
-            <li><strong>Réinitialiser</strong> : Efface vos données + connexion bancaire, conserve votre compte</li>
+            <li><strong>Réinitialiser</strong> : Efface vos données financières + connexion bancaire, conserve votre compte</li>
             <li><strong>Supprimer le compte</strong> : Efface TOUT définitivement (compte + données + banque)</li>
           </ul>
         </div>
