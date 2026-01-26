@@ -12,6 +12,7 @@ export const AccountMappingModal = ({
   const [selectedOption, setSelectedOption] = useState('existing');
   const [selectedCompteId, setSelectedCompteId] = useState(comptes.length > 0 ? comptes[0].id : null);
   const [newCompteName, setNewCompteName] = useState(bankName || 'Ma Banque');
+  const [newCompteType, setNewCompteType] = useState('courant'); // ✅ Nouveau
 
   if (!isOpen) return null;
 
@@ -25,7 +26,8 @@ export const AccountMappingModal = ({
     } else if (selectedOption === 'new') {
       onConfirm({ 
         type: 'new', 
-        compteName: newCompteName 
+        compteName: newCompteName,
+        compteType: newCompteType // ✅ Nouveau
       });
     }
   };
@@ -125,15 +127,30 @@ export const AccountMappingModal = ({
             </div>
             
             {selectedOption === 'new' && (
-              <div>
-                <input
-                  type="text"
-                  value={newCompteName}
-                  onChange={(e) => setNewCompteName(e.target.value)}
-                  placeholder="Nom du nouveau compte"
-                  className="w-full px-4 py-3 border-2 border-green-500 rounded-lg font-medium focus:outline-none focus:ring-2 focus:ring-green-300"
-                />
-                <p className="text-xs text-green-700 mt-2">
+              <div className="space-y-3">
+                <div>
+                  <label className="block text-xs font-bold text-gray-700 mb-2">Nom du compte</label>
+                  <input
+                    type="text"
+                    value={newCompteName}
+                    onChange={(e) => setNewCompteName(e.target.value)}
+                    placeholder="Nom du nouveau compte"
+                    className="w-full px-4 py-3 border-2 border-green-500 rounded-lg font-medium focus:outline-none focus:ring-2 focus:ring-green-300"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-gray-700 mb-2">Type de compte</label>
+                  <select
+                    value={newCompteType}
+                    onChange={(e) => setNewCompteType(e.target.value)}
+                    className="w-full px-4 py-3 border-2 border-green-500 rounded-lg font-medium focus:outline-none focus:ring-2 focus:ring-green-300"
+                  >
+                    <option value="courant">💳 Compte Courant</option>
+                    <option value="epargne">💰 Épargne</option>
+                    <option value="especes">💵 Espèces/Cash</option>
+                  </select>
+                </div>
+                <p className="text-xs text-green-700">
                   💡 Vous pouvez personnaliser le nom (ex: "BNP Paribas", "Crédit Agricole")
                 </p>
               </div>

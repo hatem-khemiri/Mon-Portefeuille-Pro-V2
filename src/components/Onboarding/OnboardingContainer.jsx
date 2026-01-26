@@ -30,6 +30,7 @@ export const OnboardingContainer = ({ onComplete }) => {
             onComptesChange={comptes => setData({ ...data, comptes })}
             onNext={() => setStep(3)}
             onPrevious={() => setStep(1)}
+            currentUser={currentUser} // ✅ AJOUT ICI
           />
         );
       

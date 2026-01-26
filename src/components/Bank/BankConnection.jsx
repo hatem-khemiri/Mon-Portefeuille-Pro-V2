@@ -190,14 +190,14 @@ export const BankConnection = () => {
       const newCompte = {
         id: Date.now(),
         nom: mapping.compteName,
-        type: 'courant',
+        type: mapping.compteType || 'courant', // ✅ Utiliser le type choisi
         solde: 0,
         soldeInitial: 0,
         isSynced: true
       };
       setComptes([...comptes, newCompte]);
       targetCompteName = mapping.compteName;
-      console.log(`✅ Compte "${mapping.compteName}" créé`);
+      console.log(`✅ Compte "${mapping.compteName}" (${mapping.compteType}) créé`);
     }
     
     // Assigner les transactions au compte choisi
