@@ -3,7 +3,7 @@ import { RefreshCw, Unlink, AlertCircle } from 'lucide-react';
 import { useFinance } from '../../contexts/FinanceContext';
 
 export const BankConnection = () => {
-  const { currentUser, transactions, setTransactions } = useFinance();
+  const { currentUser, transactions, setTransactions, comptes, setComptes } = useFinance();
   
   const [bankConnection, setBankConnection] = useState(null);
   const [isSyncing, setIsSyncing] = useState(false);
