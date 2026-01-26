@@ -21,8 +21,8 @@ export const OnboardingComptes = ({ comptes, transactions, onComptesChange, onTr
     }
   };
 
-  const removeCompte = (index) => {
-    onComptesChange(comptes.filter((_, i) => i !== index));
+  const removeCompte = (compteId) => {
+    onComptesChange(comptes.filter(c => c.id !== compteId));
   };
 
   // ✅ NOUVEAU : Gérer la synchronisation bancaire
@@ -213,8 +213,8 @@ export const OnboardingComptes = ({ comptes, transactions, onComptesChange, onTr
         {comptes.length > 0 && (
           <div className="space-y-2 mb-4">
             <h4 className="font-bold text-gray-700 mb-3">📋 Comptes ajoutés ({comptes.length})</h4>
-            {comptes.map((compte, idx) => (
-              <div key={idx} className="flex items-center justify-between p-4 bg-gradient-to-r from-blue-50 to-purple-50 rounded-xl">
+            {comptes.map((compte) => (
+              <div key={compte.id} className="flex items-center justify-between p-4 bg-gradient-to-r from-blue-50 to-purple-50 rounded-xl">
                 <div className="flex items-center gap-2">
                   <div>
                     <div className="flex items-center gap-2">
@@ -232,7 +232,7 @@ export const OnboardingComptes = ({ comptes, transactions, onComptesChange, onTr
                   </div>
                 </div>
                 <button
-                  onClick={() => removeCompte(idx)}
+                  onClick={() => removeCompte(compte.id)}
                   className="text-red-500 hover:text-red-700 p-2 hover:bg-red-50 rounded-lg transition-all"
                 >
                   <Trash2 size={18} />
