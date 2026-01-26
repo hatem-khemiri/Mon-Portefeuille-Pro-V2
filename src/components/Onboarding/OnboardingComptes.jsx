@@ -25,12 +25,10 @@ export const OnboardingComptes = ({ comptes, transactions, onComptesChange, onTr
     onComptesChange(comptes.filter(c => c.id !== compteId));
   };
 
-  // ✅ NOUVEAU : Gérer la synchronisation bancaire
   const handleBankSync = async () => {
     setIsSyncing(true);
 
     try {
-      // 1. Connexion Bridge
       const connectResponse = await fetch('/api/bridge/connect', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -42,13 +40,11 @@ export const OnboardingComptes = ({ comptes, transactions, onComptesChange, onTr
       const { connectUrl } = await connectResponse.json();
       const popup = window.open(connectUrl, 'Bridge', 'width=500,height=700');
       
-      // 2. Attendre la fermeture de la popup
       const checkPopup = setInterval(async () => {
         if (popup.closed) {
           clearInterval(checkPopup);
           
           try {
-            // 3. Récupérer les items
             const itemsResponse = await fetch('/api/bridge/items', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
@@ -68,14 +64,13 @@ export const OnboardingComptes = ({ comptes, transactions, onComptesChange, onTr
             const latestItem = items[0];
             const bankName = latestItem.bank_name || 'Ma Banque';
 
-            // 4. Synchroniser les transactions
             const syncResponse = await fetch('/api/bridge/sync', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({ 
                 itemId: latestItem.id, 
                 userId: currentUser,
-                bankName: 'TEMP' // Sera remplacé après mapping
+                bankName: 'TEMP'
               })
             });
 
@@ -84,7 +79,6 @@ export const OnboardingComptes = ({ comptes, transactions, onComptesChange, onTr
             const syncData = await syncResponse.json();
 
             if (syncData.transactions && syncData.transactions.length > 0) {
-              // 5. Sauvegarder la connexion
               const connection = {
                 itemId: latestItem.id,
                 userId: currentUser,
@@ -93,7 +87,6 @@ export const OnboardingComptes = ({ comptes, transactions, onComptesChange, onTr
               };
               localStorage.setItem(`bank_connection_${currentUser}`, JSON.stringify(connection));
 
-              // 6. ✅ TOUJOURS afficher la modal (même si aucun compte)
               setPendingSyncData({
                 transactions: syncData.transactions,
                 bankName: bankName,
@@ -119,15 +112,17 @@ export const OnboardingComptes = ({ comptes, transactions, onComptesChange, onTr
     }
   };
 
-  // ✅ Callback du mapping avec récupération automatique des transactions
-  const handleMappingConfirm = async (mapping) => {
-    const { transactions: syncedTransactions, bankName } = pendingSyncData;
+  const handleMappingConfirm = (mapping) => {
+    console.log('🟢 handleMappingConfirm APPELÉ !');
+    console.log('mapping:', mapping);
+    console.log('comptes AVANT:', comptes);
+    
+    const { transactions: syncedTransactions } = pendingSyncData;
     
     let targetCompteName;
     let updatedComptes = [...comptes];
     
     if (mapping.type === 'existing') {
-      // Fusionner avec un compte existant
       targetCompteName = mapping.compte.nom;
       updatedComptes = comptes.map(c => 
         c.id === mapping.compte.id 
@@ -135,7 +130,6 @@ export const OnboardingComptes = ({ comptes, transactions, onComptesChange, onTr
           : c
       );
     } else {
-      // Créer un nouveau compte
       const newCompte = {
         id: Date.now(),
         nom: mapping.compteName,
@@ -148,10 +142,10 @@ export const OnboardingComptes = ({ comptes, transactions, onComptesChange, onTr
       updatedComptes = [...comptes, newCompte];
     }
     
-    // ✅ Mettre à jour les comptes
+    console.log('updatedComptes APRÈS:', updatedComptes);
+    console.log('Appel onComptesChange...');
     onComptesChange(updatedComptes);
     
-    // ✅ NOUVEAU : Récupérer et stocker les transactions automatiquement
     const updatedTransactions = syncedTransactions.map(t => ({
       ...t,
       compte: targetCompteName
@@ -163,7 +157,7 @@ export const OnboardingComptes = ({ comptes, transactions, onComptesChange, onTr
     setShowMappingModal(false);
     setPendingSyncData(null);
     
-    alert(`✅ ${syncedTransactions.length} transaction(s) synchronisée(s) vers "${targetCompteName}" !\n\nElles seront visibles dans le tableau de bord après l'onboarding.`);
+    alert(`✅ ${syncedTransactions.length} transaction(s) synchronisée(s) vers "${targetCompteName}" !`);
   };
 
   return (
@@ -174,7 +168,6 @@ export const OnboardingComptes = ({ comptes, transactions, onComptesChange, onTr
           <p className="text-gray-600 mb-4">Synchronisez votre banque ou ajoutez des comptes manuellement</p>
         </div>
 
-        {/* ✅ NOUVEAU : Section synchronisation bancaire */}
         <div className="bg-gradient-to-r from-blue-50 to-purple-50 border-2 border-blue-200 rounded-xl p-6">
           <div className="flex items-start justify-between mb-4">
             <div className="flex-1">
@@ -197,7 +190,6 @@ export const OnboardingComptes = ({ comptes, transactions, onComptesChange, onTr
           </button>
         </div>
 
-        {/* Séparateur */}
         <div className="relative">
           <div className="absolute inset-0 flex items-center">
             <div className="w-full border-t-2 border-gray-300"></div>
@@ -207,7 +199,6 @@ export const OnboardingComptes = ({ comptes, transactions, onComptesChange, onTr
           </div>
         </div>
 
-        {/* Liste des comptes ajoutés */}
         {comptes.length > 0 && (
           <div className="space-y-2 mb-4">
             <h4 className="font-bold text-gray-700 mb-3">📋 Comptes ajoutés ({comptes.length})</h4>
@@ -240,7 +231,6 @@ export const OnboardingComptes = ({ comptes, transactions, onComptesChange, onTr
           </div>
         )}
 
-        {/* Formulaire ajout manuel */}
         <div className="bg-gray-50 border-2 border-gray-200 rounded-xl p-6">
           <h4 className="font-bold text-gray-700 mb-4">✏️ Ajouter un compte manuellement</h4>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
@@ -286,7 +276,6 @@ export const OnboardingComptes = ({ comptes, transactions, onComptesChange, onTr
           </div>
         )}
 
-        {/* Navigation */}
         <div className="flex gap-3 pt-4">
           <button
             onClick={onPrevious}
@@ -311,7 +300,6 @@ export const OnboardingComptes = ({ comptes, transactions, onComptesChange, onTr
         </div>
       </div>
 
-      {/* ✅ Modal de mapping */}
       <AccountMappingModal
         isOpen={showMappingModal}
         onClose={() => {
@@ -320,7 +308,7 @@ export const OnboardingComptes = ({ comptes, transactions, onComptesChange, onTr
         }}
         comptes={comptes}
         bankName={pendingSyncData?.bankName}
-        transactionsCount={pendingSyncData?.transactions.length}
+        transactionsCount={pendingSyncData?.transactions?.length || 0}
         onConfirm={handleMappingConfirm}
       />
     </>
