@@ -154,7 +154,7 @@ export const BankConnection = () => {
         const newTrans = syncData.transactions.filter(t => !bridgeIds.has(t.bridgeId));
 
         if (newTrans.length > 0) {
-          // ✅ NOUVEAU : Ouvrir la modal au lieu d'ajouter directement
+          // ✅ TOUJOURS ouvrir la modal (même sans comptes existants)
           setPendingSyncData({
             transactions: newTrans,
             bankName: bankName

@@ -93,38 +93,14 @@ export const OnboardingComptes = ({ comptes, onComptesChange, onNext, onPrevious
               };
               localStorage.setItem(`bank_connection_${currentUser}`, JSON.stringify(connection));
 
-              // 6. Logique de mapping intelligente
-              if (comptes.length === 0) {
-                // Pas de comptes → Créer directement
-                const newCompte = {
-                  id: Date.now(),
-                  nom: bankName,
-                  type: 'courant',
-                  solde: 0,
-                  soldeInitial: 0,
-                  isSynced: true
-                };
-                
-                const transactionsWithCompte = syncData.transactions.map(t => ({
-                  ...t,
-                  compte: bankName
-                }));
-                
-                onComptesChange([newCompte]);
-                
-                alert(`✅ ${syncData.transactions.length} transaction(s) synchronisée(s) !\n\n📁 Compte "${bankName}" créé automatiquement.`);
-                
-                setIsSyncing(false);
-              } else {
-                // Des comptes existent → Modal de mapping
-                setPendingSyncData({
-                  transactions: syncData.transactions,
-                  bankName: bankName,
-                  connection: connection
-                });
-                setShowMappingModal(true);
-                setIsSyncing(false);
-              }
+              // 6. ✅ TOUJOURS afficher la modal (même si aucun compte)
+              setPendingSyncData({
+                transactions: syncData.transactions,
+                bankName: bankName,
+                connection: connection
+              });
+              setShowMappingModal(true);
+              setIsSyncing(false);
             } else {
               alert('ℹ️ Aucune transaction trouvée');
               setIsSyncing(false);

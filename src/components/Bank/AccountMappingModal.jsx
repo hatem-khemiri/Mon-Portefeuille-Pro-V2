@@ -9,10 +9,10 @@ export const AccountMappingModal = ({
   transactionsCount,
   onConfirm 
 }) => {
-  const [selectedOption, setSelectedOption] = useState('existing');
+  const [selectedOption, setSelectedOption] = useState(comptes.length > 0 ? 'existing' : 'new'); // ✅ Nouveau par défaut si aucun compte
   const [selectedCompteId, setSelectedCompteId] = useState(comptes.length > 0 ? comptes[0].id : null);
   const [newCompteName, setNewCompteName] = useState(bankName || 'Ma Banque');
-  const [newCompteType, setNewCompteType] = useState('courant'); // ✅ Nouveau
+  const [newCompteType, setNewCompteType] = useState('courant');
 
   if (!isOpen) return null;
 
@@ -60,49 +60,57 @@ export const AccountMappingModal = ({
         <div className="p-6 space-y-6">
           <div className="bg-blue-50 border-2 border-blue-200 rounded-xl p-4">
             <p className="text-sm text-blue-800">
-              💡 <strong>Choisissez où assigner ces transactions :</strong>
+              💡 <strong>
+                {comptes.length > 0 
+                  ? 'Choisissez où assigner ces transactions :' 
+                  : 'Configurez votre nouveau compte bancaire :'}
+              </strong>
             </p>
             <p className="text-xs text-blue-700 mt-2">
-              Vous pouvez les fusionner avec un compte existant ou créer un nouveau compte.
+              {comptes.length > 0
+                ? 'Vous pouvez les fusionner avec un compte existant ou créer un nouveau compte.'
+                : 'Personnalisez le nom et le type de votre compte.'}
             </p>
           </div>
 
-          {/* Option 1 : Compte existant */}
-          <div 
-            onClick={() => setSelectedOption('existing')}
-            className={`border-2 rounded-xl p-4 cursor-pointer transition-all ${
-              selectedOption === 'existing' 
-                ? 'border-blue-500 bg-blue-50' 
-                : 'border-gray-200 hover:border-blue-300'
-            }`}
-          >
-            <div className="flex items-center gap-3 mb-3">
-              <input
-                type="radio"
-                name="option"
-                checked={selectedOption === 'existing'}
-                onChange={() => setSelectedOption('existing')}
-                className="w-5 h-5 text-blue-600"
-              />
-              <label className="font-bold text-gray-800 cursor-pointer">
-                📁 Fusionner avec un compte existant
-              </label>
+          {/* Option 1 : Compte existant (seulement si des comptes existent) */}
+          {comptes.length > 0 && (
+            <div 
+              onClick={() => setSelectedOption('existing')}
+              className={`border-2 rounded-xl p-4 cursor-pointer transition-all ${
+                selectedOption === 'existing' 
+                  ? 'border-blue-500 bg-blue-50' 
+                  : 'border-gray-200 hover:border-blue-300'
+              }`}
+            >
+              <div className="flex items-center gap-3 mb-3">
+                <input
+                  type="radio"
+                  name="option"
+                  checked={selectedOption === 'existing'}
+                  onChange={() => setSelectedOption('existing')}
+                  className="w-5 h-5 text-blue-600"
+                />
+                <label className="font-bold text-gray-800 cursor-pointer">
+                  📁 Fusionner avec un compte existant
+                </label>
+              </div>
+              
+              {selectedOption === 'existing' && (
+                <select
+                  value={selectedCompteId || ''}
+                  onChange={(e) => setSelectedCompteId(parseInt(e.target.value))}
+                  className="w-full px-4 py-3 border-2 border-blue-500 rounded-lg font-medium focus:outline-none focus:ring-2 focus:ring-blue-300"
+                >
+                  {comptes.map(c => (
+                    <option key={c.id} value={c.id}>
+                      {c.nom} ({c.type === 'courant' ? 'Compte Courant' : c.type === 'epargne' ? 'Épargne' : 'Espèces'})
+                    </option>
+                  ))}
+                </select>
+              )}
             </div>
-            
-            {selectedOption === 'existing' && (
-              <select
-                value={selectedCompteId || ''}
-                onChange={(e) => setSelectedCompteId(parseInt(e.target.value))}
-                className="w-full px-4 py-3 border-2 border-blue-500 rounded-lg font-medium focus:outline-none focus:ring-2 focus:ring-blue-300"
-              >
-                {comptes.map(c => (
-                  <option key={c.id} value={c.id}>
-                    {c.nom} ({c.type === 'courant' ? 'Compte Courant' : c.type === 'epargne' ? 'Épargne' : 'Espèces'})
-                  </option>
-                ))}
-              </select>
-            )}
-          </div>
+          )}
 
           {/* Option 2 : Nouveau compte */}
           <div 
