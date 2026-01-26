@@ -111,6 +111,22 @@ export const BankConnection = () => {
       }
 
       const latestItem = items[0];
+      const bankName = latestItem.bank_name || 'Ma Banque';
+      
+      // ✅ Créer automatiquement le compte s'il n'existe pas
+      const existingBankAccount = comptes.find(c => c.nom === bankName);
+      if (!existingBankAccount) {
+        const newBankAccount = {
+          id: Date.now(),
+          nom: bankName,
+          type: 'courant',
+          solde: 0,
+          soldeInitial: 0,
+          isSynced: true // Marqueur pour identifier les comptes synchronisés
+        };
+        setComptes([...comptes, newBankAccount]);
+        console.log(`✅ Compte "${bankName}" créé automatiquement`);
+      }
       
       // ✅ Vérifier que l'item correspond à notre connexion locale
       if (bankConnection.itemId && bankConnection.itemId !== latestItem.id) {
@@ -126,7 +142,11 @@ export const BankConnection = () => {
       const syncResponse = await fetch('/api/bridge/sync', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ itemId: latestItem.id, userId: currentUser })
+        body: JSON.stringify({ 
+          itemId: latestItem.id, 
+          userId: currentUser,
+          bankName: bankName // ✅ Passer le nom de la banque
+        })
       });
 
       if (!syncResponse.ok) throw new Error('Erreur synchronisation');
@@ -153,7 +173,7 @@ export const BankConnection = () => {
           setTransactions(updated);
           setLastSync(new Date().toISOString());
           
-          alert(`✅ ${newTrans.length} transaction(s) synchronisée(s) !\n\nAllez dans "Transactions" pour les voir.`);
+          alert(`✅ ${newTrans.length} transaction(s) synchronisée(s) !\n\nAllez dans "Transactions" pour les voir.\n\n💡 Vous pouvez renommer le compte "${bankName}" dans Paramètres > Comptes.`);
         } else {
           alert(`ℹ️ ${syncData.transactions.length} transactions trouvées, toutes déjà synchronisées`);
         }

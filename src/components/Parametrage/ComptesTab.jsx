@@ -33,11 +33,21 @@ export const ComptesTab = () => {
   };
 
   const deleteCompte = (id) => {
+    const compte = comptes.find(c => c.id === id);
+    
+    // Empêcher la suppression d'un compte synchronisé avec des transactions
+    if (compte?.isSynced) {
+      const transactionsSynced = transactions.filter(t => t.compte === compte.nom && t.isSynced);
+      if (transactionsSynced.length > 0) {
+        alert(`⚠️ Impossible de supprimer ce compte.\n\nIl contient ${transactionsSynced.length} transaction(s) synchronisée(s) depuis votre banque.\n\nVeuillez d'abord déconnecter votre banque dans l'onglet "Synchronisation".`);
+        return;
+      }
+    }
+    
     setComptes(comptes.filter(c => c.id !== id));
   };
 
   const updateCompte = (id, updatedData) => {
-    // Trouver le compte à modifier
     const compteActuel = comptes.find(c => c.id === id);
     if (!compteActuel) {
       setEditingCompte(null);
@@ -59,7 +69,7 @@ export const ComptesTab = () => {
     if (ancienNom !== nouveauNom) {
       console.log(`🔄 Renommage du compte: "${ancienNom}" → "${nouveauNom}"`);
     
-      // 1. Mettre à jour les charges fixes (compte source ET destination pour les transferts)
+      // 1. Mettre à jour les charges fixes
       setChargesFixes(chargesFixes.map(cf => {
         let updated = { ...cf };
         let modified = false;
@@ -132,7 +142,14 @@ export const ComptesTab = () => {
                   {isEditing ? (
                     <div className="space-y-3">
                       <div>
-                        <label className="block text-xs font-bold text-gray-700 mb-1">Nom du compte</label>
+                        <label className="block text-xs font-bold text-gray-700 mb-1">
+                          Nom du compte
+                          {compte.isSynced && (
+                            <span className="ml-2 px-2 py-0.5 rounded-full text-xs bg-blue-100 text-blue-800">
+                              🏦 Synchronisé
+                            </span>
+                          )}
+                        </label>
                         <input
                           type="text"
                           defaultValue={compte.nom}
@@ -140,6 +157,11 @@ export const ComptesTab = () => {
                           className="w-full px-3 py-2 border-2 border-blue-500 rounded-lg"
                           placeholder="Nom du compte"
                         />
+                        {compte.isSynced && (
+                          <p className="text-xs text-blue-600 mt-1">
+                            💡 Ce compte est lié à votre banque. Vous pouvez le renommer librement (ex: "BNP Paribas", "Crédit Agricole").
+                          </p>
+                        )}
                       </div>
                       <div className="grid grid-cols-2 gap-3">
                         <div>
@@ -174,7 +196,14 @@ export const ComptesTab = () => {
                     </div>
                   ) : (
                     <>
-                      <p className="font-bold text-gray-800 text-lg">{compte.nom}</p>
+                      <div className="flex items-center gap-2">
+                        <p className="font-bold text-gray-800 text-lg">{compte.nom}</p>
+                        {compte.isSynced && (
+                          <span className="px-2 py-1 rounded-full text-xs font-bold bg-blue-100 text-blue-800" title="Compte synchronisé avec votre banque">
+                            🏦
+                          </span>
+                        )}
+                      </div>
                       <div className="mt-2 space-y-1">
                         <p className="text-sm text-gray-600">
                           {compte.type === 'courant' ? '💳 Compte Courant' : compte.type === 'epargne' ? '💰 Épargne' : '💵 Espèces'}
@@ -193,7 +222,7 @@ export const ComptesTab = () => {
                   <button 
                     onClick={() => setEditingCompte(isEditing ? null : compte.id)}
                     className={`p-2 rounded-lg transition-all ${isEditing ? 'bg-green-100 text-green-600 hover:bg-green-200' : 'bg-blue-100 text-blue-600 hover:bg-blue-200'}`}
-                    title={isEditing ? 'Terminer' : 'Modifier'}
+                    title={isEditing ? 'Terminer' : 'Modifier / Renommer'}
                   >
                     {isEditing ? <Check size={20} /> : '✏️'}
                   </button>

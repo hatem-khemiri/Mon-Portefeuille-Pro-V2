@@ -100,7 +100,7 @@ function categorizeTransaction(transaction) {
 
 export default async function handler(req, res) {
   try {
-    const { itemId, userId } = req.body;
+    const { itemId, userId, bankName } = req.body; // ✅ Récupérer bankName
 
     if (!itemId || !userId) {
       return res.status(400).json({ error: 'itemId et userId requis' });
@@ -174,8 +174,8 @@ export default async function handler(req, res) {
         date: futureDate.toISOString().split('T')[0],
         description: t.clean_description || t.provider_description || 'Transaction',
         montant: parseFloat(t.amount),
-        categorie: categorizeTransaction(t), // ✅ CORRECTION ICI
-        compte: 'BoursoBank',
+        categorie: categorizeTransaction(t),
+        compte: bankName || 'Ma Banque', // ✅ Utiliser le nom passé en paramètre
         statut: 'avenir',
         type: 'bancaire',
         bridgeId: t.id,
