@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Plus, Trash2, ArrowLeft, ArrowRight, RefreshCw } from 'lucide-react';
 import { AccountMappingModal } from '../Bank/AccountMappingModal';
 
-export const OnboardingComptes = ({ comptes, onComptesChange, onNext, onPrevious, currentUser }) => {
+export const OnboardingComptes = ({ comptes, transactions, onComptesChange, onTransactionsChange, onNext, onPrevious, currentUser }) => {
   const [newCompte, setNewCompte] = useState({ nom: '', solde: '', type: 'courant' });
   const [isSyncing, setIsSyncing] = useState(false);
   const [showMappingModal, setShowMappingModal] = useState(false);
@@ -140,6 +140,16 @@ export const OnboardingComptes = ({ comptes, onComptesChange, onNext, onPrevious
       };
       onComptesChange([...comptes, targetCompte]);
     }
+    
+    // ✅ CORRECTION : Assigner les transactions au compte et les sauvegarder
+    const updatedTransactions = newTrans.map(t => ({
+      ...t,
+      compte: targetCompte.nom
+    }));
+    
+    // ✅ Fusionner avec les transactions existantes
+    const existingTransactions = transactions || [];
+    onTransactionsChange([...existingTransactions, ...updatedTransactions]);
     
     setShowMappingModal(false);
     setPendingSyncData(null);
