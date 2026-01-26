@@ -17,20 +17,29 @@ export const AccountMappingModal = ({
   if (!isOpen) return null;
 
   const handleConfirm = () => {
+    console.log('🔵 MODAL : handleConfirm appelé');
+    console.log('🔵 selectedOption:', selectedOption);
+    console.log('🔵 selectedCompteId:', selectedCompteId);
+    console.log('🔵 newCompteName:', newCompteName);
+  
     if (selectedOption === 'existing' && selectedCompteId) {
-      const compte = comptes.find(c => c.id === selectedCompteId);
-      onConfirm({ 
-        type: 'existing', 
-        compte: compte 
-      });
+        const compte = comptes.find(c => c.id === selectedCompteId);
+        console.log('🔵 Compte trouvé:', compte);
+        onConfirm({ 
+            type: 'existing', 
+            compte: compte 
+        });
     } else if (selectedOption === 'new') {
-      onConfirm({ 
-        type: 'new', 
-        compteName: newCompteName,
-        compteType: newCompteType // ✅ Nouveau
-      });
+        console.log('🔵 Création nouveau compte');
+        onConfirm({ 
+            type: 'new', 
+            compteName: newCompteName,
+            compteType: newCompteType
+        });
     }
-  };
+  
+    console.log('✅ MODAL : onConfirm appelé');
+    };
 
   return (
     <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
