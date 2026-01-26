@@ -19,6 +19,8 @@ export const OnboardingContainer = ({ onComplete }) => {
     epargnes: []
   });
 
+  console.log('🔵 OnboardingContainer - data.comptes:', data.comptes);
+
   const renderStep = () => {
     switch (step) {
       case 1:
@@ -29,8 +31,14 @@ export const OnboardingContainer = ({ onComplete }) => {
           <OnboardingComptes
             comptes={data.comptes}
             transactions={data.transactions}
-            onComptesChange={comptes => setData({ ...data, comptes })}
-            onTransactionsChange={transactions => setData({ ...data, transactions })}
+            onComptesChange={(newComptes) => {
+              console.log('🟢 OnboardingContainer - onComptesChange reçu:', newComptes);
+              setData({ ...data, comptes: newComptes });
+            }}
+            onTransactionsChange={(newTransactions) => {
+              console.log('🟢 OnboardingContainer - onTransactionsChange reçu:', newTransactions);
+              setData({ ...data, transactions: newTransactions });
+            }}
             onNext={() => setStep(3)}
             onPrevious={() => setStep(1)}
             currentUser={currentUser}
