@@ -119,18 +119,25 @@ export const OnboardingComptes = ({ comptes, transactions, onComptesChange, onTr
     }
   };
 
-  // ✅ NOUVEAU : Callback du mapping
+  // ✅ CORRECTION : Callback du mapping
   const handleMappingConfirm = (mapping) => {
     const { transactions: newTrans, bankName } = pendingSyncData;
     
-    let targetCompte;
+    let targetCompteName;
+    let updatedComptes = [...comptes];
     
     if (mapping.type === 'existing') {
       // Fusionner avec un compte existant
-      targetCompte = mapping.compte;
+      targetCompteName = mapping.compte.nom;
+      // ✅ Marquer le compte comme synchronisé
+      updatedComptes = comptes.map(c => 
+        c.id === mapping.compte.id 
+          ? { ...c, isSynced: true }
+          : c
+      );
     } else {
       // Créer un nouveau compte
-      targetCompte = {
+      const newCompte = {
         id: Date.now(),
         nom: mapping.compteName,
         type: mapping.compteType || 'courant',
@@ -138,13 +145,17 @@ export const OnboardingComptes = ({ comptes, transactions, onComptesChange, onTr
         soldeInitial: 0,
         isSynced: true
       };
-      onComptesChange([...comptes, targetCompte]);
+      targetCompteName = mapping.compteName;
+      updatedComptes = [...comptes, newCompte];
     }
     
-    // ✅ CORRECTION : Assigner les transactions au compte et les sauvegarder
+    // ✅ Mettre à jour les comptes
+    onComptesChange(updatedComptes);
+    
+    // ✅ Assigner les transactions au compte et les sauvegarder
     const updatedTransactions = newTrans.map(t => ({
       ...t,
-      compte: targetCompte.nom
+      compte: targetCompteName
     }));
     
     // ✅ Fusionner avec les transactions existantes
@@ -154,7 +165,7 @@ export const OnboardingComptes = ({ comptes, transactions, onComptesChange, onTr
     setShowMappingModal(false);
     setPendingSyncData(null);
     
-    alert(`✅ ${newTrans.length} transaction(s) synchronisée(s) vers "${targetCompte.nom}" !`);
+    alert(`✅ ${newTrans.length} transaction(s) synchronisée(s) vers "${targetCompteName}" !`);
   };
 
   return (
