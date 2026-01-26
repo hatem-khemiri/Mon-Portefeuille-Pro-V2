@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Plus, Trash2, ArrowLeft, ArrowRight, RefreshCw } from 'lucide-react';
 import { AccountMappingModal } from '../Bank/AccountMappingModal';
 
-export const OnboardingComptes = ({ comptes, transactions, onComptesChange, onTransactionsChange, onNext, onPrevious, currentUser }) => {
+export const OnboardingComptes = ({ comptes, onComptesChange, onNext, onPrevious, currentUser }) => {
   const [newCompte, setNewCompte] = useState({ nom: '', solde: '', type: 'courant' });
   const [isSyncing, setIsSyncing] = useState(false);
   const [showMappingModal, setShowMappingModal] = useState(false);
@@ -119,17 +119,12 @@ export const OnboardingComptes = ({ comptes, transactions, onComptesChange, onTr
     }
   };
 
-  // ✅ CORRECTION : Callback du mapping
+  // ✅ Callback du mapping
   const handleMappingConfirm = (mapping) => {
-    const { transactions: newTrans, bankName } = pendingSyncData;
-    
-    let targetCompteName;
     let updatedComptes = [...comptes];
     
     if (mapping.type === 'existing') {
       // Fusionner avec un compte existant
-      targetCompteName = mapping.compte.nom;
-      // ✅ Marquer le compte comme synchronisé
       updatedComptes = comptes.map(c => 
         c.id === mapping.compte.id 
           ? { ...c, isSynced: true }
@@ -145,27 +140,15 @@ export const OnboardingComptes = ({ comptes, transactions, onComptesChange, onTr
         soldeInitial: 0,
         isSynced: true
       };
-      targetCompteName = mapping.compteName;
       updatedComptes = [...comptes, newCompte];
     }
     
-    // ✅ Mettre à jour les comptes
     onComptesChange(updatedComptes);
-    
-    // ✅ Assigner les transactions au compte et les sauvegarder
-    const updatedTransactions = newTrans.map(t => ({
-      ...t,
-      compte: targetCompteName
-    }));
-    
-    // ✅ Fusionner avec les transactions existantes
-    const existingTransactions = transactions || [];
-    onTransactionsChange([...existingTransactions, ...updatedTransactions]);
     
     setShowMappingModal(false);
     setPendingSyncData(null);
     
-    alert(`✅ ${newTrans.length} transaction(s) synchronisée(s) vers "${targetCompteName}" !`);
+    alert(`✅ Compte synchronisé ! Vous pourrez récupérer les transactions dans Paramètres > Synchronisation bancaire.`);
   };
 
   return (

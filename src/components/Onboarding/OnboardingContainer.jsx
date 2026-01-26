@@ -12,7 +12,6 @@ export const OnboardingContainer = ({ onComplete }) => {
   const [step, setStep] = useState(1);
   const [data, setData] = useState({
     comptes: [],
-    transactions: [], // ✅ AJOUT : pour stocker les transactions synchronisées
     revenus: [],
     charges: [],
     transferts: [],
@@ -28,9 +27,7 @@ export const OnboardingContainer = ({ onComplete }) => {
         return (
           <OnboardingComptes
             comptes={data.comptes}
-            transactions={data.transactions} // ✅ AJOUT
             onComptesChange={comptes => setData({ ...data, comptes })}
-            onTransactionsChange={transactions => setData({ ...data, transactions })} // ✅ AJOUT
             onNext={() => setStep(3)}
             onPrevious={() => setStep(1)}
             currentUser={currentUser}
