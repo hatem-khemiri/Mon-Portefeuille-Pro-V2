@@ -221,18 +221,27 @@ function AppContent() {
     const dateCreation = new Date().toISOString();
     setDateCreationCompte(dateCreation);
     
+    // 1. Comptes
     const nouveauxComptes = onboardingData.comptes.map((c, i) => {
-      const soldeInitialFixe = parseFloat(c.solde);
+      const soldeInitialFixe = c.soldeInitial !== undefined ? c.soldeInitial : parseFloat(c.solde);
       return {
-        id: Date.now() + i,
+        id: c.id || Date.now() + i,
         nom: c.nom,
         type: c.type,
         solde: soldeInitialFixe,
-        soldeInitial: soldeInitialFixe
+        soldeInitial: soldeInitialFixe,
+        isSynced: c.isSynced || false
       };
     });
     setComptes(nouveauxComptes);
 
+    // 2. Transactions synchronisées
+    if (onboardingData.transactions && onboardingData.transactions.length > 0) {
+      console.log('💾 Sauvegarde de', onboardingData.transactions.length, 'transactions');
+      setTransactions(onboardingData.transactions);
+    }
+
+    // 3. Charges fixes
     const nouvellesCharges = [...onboardingData.revenus, ...onboardingData.charges, ...onboardingData.transferts].map((c, i) => {
       if (c.type === 'transfert') {
         return {
@@ -262,6 +271,7 @@ function AppContent() {
     });
     setChargesFixes(nouvellesCharges);
 
+    // 4. Épargnes
     const nouvellesEpargnes = onboardingData.epargnes.map((e, i) => ({
       id: Date.now() + i + 2000,
       ...e,
@@ -269,6 +279,7 @@ function AppContent() {
     }));
     setEpargnes(nouvellesEpargnes);
 
+    // 5. Générer transactions des charges fixes
     setTimeout(() => {
       genererTransactionsChargesFixes(nouvellesCharges, dateCreation);
     }, 500);

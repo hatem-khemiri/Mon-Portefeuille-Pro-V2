@@ -8,25 +8,20 @@ export const OnboardingComptes = ({ comptes, transactions, onComptesChange, onTr
   const [showMappingModal, setShowMappingModal] = useState(false);
   const [pendingSyncData, setPendingSyncData] = useState(null);
 
-  console.log('🔵 OnboardingComptes - comptes reçus:', comptes);
-
   const addCompte = () => {
     if (newCompte.nom && newCompte.solde) {
-      const nouveauCompte = { 
+      onComptesChange([...comptes, { 
         id: Date.now(),
         nom: newCompte.nom,
         type: newCompte.type,
         solde: parseFloat(newCompte.solde),
         soldeInitial: parseFloat(newCompte.solde)
-      };
-      console.log('🟢 addCompte - ajout de:', nouveauCompte);
-      onComptesChange([...comptes, nouveauCompte]);
+      }]);
       setNewCompte({ nom: '', solde: '', type: 'courant' });
     }
   };
 
   const removeCompte = (compteId) => {
-    console.log('🔴 removeCompte - suppression ID:', compteId);
     onComptesChange(comptes.filter(c => c.id !== compteId));
   };
 
@@ -172,24 +167,6 @@ export const OnboardingComptes = ({ comptes, transactions, onComptesChange, onTr
           <h3 className="text-xl font-bold mb-2">Vos comptes bancaires</h3>
           <p className="text-gray-600 mb-4">Synchronisez votre banque ou ajoutez des comptes manuellement</p>
         </div>
-
-        {/* TEST BUTTON */}
-        <button 
-          onClick={() => {
-            const testCompte = {
-              id: Date.now(),
-              nom: 'TEST MANUEL',
-              type: 'courant',
-              solde: 100,
-              soldeInitial: 100
-            };
-            console.log('🧪 TEST: ajout de:', testCompte);
-            onComptesChange([...comptes, testCompte]);
-          }}
-          className="w-full bg-red-500 text-white px-4 py-2 rounded font-bold"
-        >
-          🧪 TEST: Ajouter compte TEST
-        </button>
 
         <div className="bg-gradient-to-r from-blue-50 to-purple-50 border-2 border-blue-200 rounded-xl p-6">
           <div className="flex items-start justify-between mb-4">
