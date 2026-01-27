@@ -29,8 +29,12 @@ export const OnboardingContainer = ({ onComplete }) => {
           <OnboardingComptes
             comptes={data.comptes}
             transactions={data.transactions}
-            onComptesChange={comptes => setData({ ...data, comptes })}
-            onTransactionsChange={transactions => setData({ ...data, transactions })}
+            onComptesChange={(newComptes) => {
+              setData(prevData => ({ ...prevData, comptes: newComptes }));
+            }}
+            onTransactionsChange={(newTransactions) => {
+              setData(prevData => ({ ...prevData, transactions: newTransactions }));
+            }}
             onNext={() => setStep(3)}
             onPrevious={() => setStep(1)}
             currentUser={currentUser}
@@ -42,7 +46,7 @@ export const OnboardingContainer = ({ onComplete }) => {
           <OnboardingRevenus
             revenus={data.revenus}
             comptes={data.comptes}
-            onRevenusChange={revenus => setData({ ...data, revenus })}
+            onRevenusChange={revenus => setData(prevData => ({ ...prevData, revenus }))}
             onNext={() => setStep(4)}
             onPrevious={() => setStep(2)}
             onSkip={() => setStep(4)}
@@ -54,7 +58,7 @@ export const OnboardingContainer = ({ onComplete }) => {
           <OnboardingCharges
             charges={data.charges}
             comptes={data.comptes}
-            onChargesChange={charges => setData({ ...data, charges })}
+            onChargesChange={charges => setData(prevData => ({ ...prevData, charges }))}
             onNext={() => setStep(5)}
             onPrevious={() => setStep(3)}
             onSkip={() => setStep(5)}
@@ -66,7 +70,7 @@ export const OnboardingContainer = ({ onComplete }) => {
           <OnboardingTransferts
             transferts={data.transferts}
             comptes={data.comptes}
-            onTransfertsChange={transferts => setData({ ...data, transferts })}
+            onTransfertsChange={transferts => setData(prevData => ({ ...prevData, transferts }))}
             onNext={() => setStep(6)}
             onPrevious={() => setStep(4)}
             onSkip={() => setStep(6)}
@@ -81,7 +85,7 @@ export const OnboardingContainer = ({ onComplete }) => {
             revenus={data.revenus}
             charges={data.charges}
             transferts={data.transferts}
-            onEpargnesChange={epargnes => setData({ ...data, epargnes })}
+            onEpargnesChange={epargnes => setData(prevData => ({ ...prevData, epargnes }))}
             onComplete={() => onComplete(data)}
             onPrevious={() => setStep(5)}
           />
